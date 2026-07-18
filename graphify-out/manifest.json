@@ -275,9 +275,9 @@
     "semantic_hash": "c2cd72aa26004b86bdbf2281ce91ab5e"
   },
   "CLAUDE.md": {
-    "mtime": 1784382499.971815,
-    "ast_hash": "82efb97a359f5c7290bf2513d14686be",
-    "semantic_hash": "82efb97a359f5c7290bf2513d14686be"
+    "mtime": 1784388503.4448438,
+    "ast_hash": "a22cfbf9f742bf9a1e1a3b370408658a",
+    "semantic_hash": ""
   },
   "README.md": {
     "mtime": 1784211651.078367,
@@ -453,5 +453,15 @@
     "mtime": 1783874799.7555964,
     "ast_hash": "301a7604d45b3e739efc881eb04896ea",
     "semantic_hash": "301a7604d45b3e739efc881eb04896ea"
+  },
+  ".docs/plans/app-theme-plan.md": {
+    "mtime": 1784388295.672321,
+    "ast_hash": "f20a8bc16991fd7a9ee10f5b7d2f5309",
+    "semantic_hash": ""
+  },
+  ".docs/specs/app/theme.md": {
+    "mtime": 1784387664.7080526,
+    "ast_hash": "6c65f7a8adbc5545685b02d2afc40212",
+    "semantic_hash": ""
   }
 }
