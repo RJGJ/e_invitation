@@ -156,7 +156,36 @@
 - If `JWT_SECRET` or `JWT_REFRESH_SECRET` is not set: Throw a startup error immediately with a clear message, preventing the server from running in an insecure state.
 - If the User associated with a valid JWT has been deleted: Middleware should fail gracefully (treat as unauthenticated).
 
-## 9. Acceptance Criteria
+## 9. Testing Requirements
+
+**Project type:** API-only
+
+### 9a. Unit Testing
+
+- Test Framework: Vitest (no test framework or convention exists yet in `api/`; Vitest is chosen for native TS/ESM support and minimal config).
+- Test File Location: Co-locate as `*.test.ts` next to the source file (e.g., `api/lib/jwt.test.ts`, `api/lib/auth-middleware.test.ts`, `api/routes/auth.test.ts`).
+- Coverage Required:
+  - [ ] Happy path: `POST /api/auth/login` with valid credentials returns `200` with `accessToken`, `refreshToken`, and `user`.
+  - [ ] Validation errors: `POST /api/auth/login` with missing `email` or `password` returns `400`.
+  - [ ] Auth/permissions: `POST /api/auth/login` with invalid credentials returns `401 { error: "Invalid email or password" }` (verify the message does not distinguish "user not found" from "wrong password").
+  - [ ] `POST /api/auth/refresh` with a valid refresh token returns `200` with a new `accessToken`.
+  - [ ] `POST /api/auth/refresh` with an invalid/expired/missing refresh token returns `401`.
+  - [ ] `POST /api/auth/logout` clears the stored refresh token, and a subsequent refresh with the same token returns `401`.
+  - [ ] `jwtAuthMiddleware` attaches a decoded `req.jwtPayload` for a valid `Authorization: Bearer` token.
+  - [ ] `jwtAuthMiddleware` calls `next()` with no `req.jwtPayload` when the header is missing or malformed (anonymous access, no 401).
+  - [ ] `jwtAuthMiddleware` returns `401 { error: "Token expired" }` for an expired token.
+  - [ ] `jwtAuthMiddleware` returns `401 { error: "Invalid token" }` for a tampered/invalid signature.
+  - [ ] `generateAccessToken` / `verifyAccessToken` / `hashToken` round-trip correctly in `lib/jwt.ts`.
+  - [ ] Edge cases from Section 8 above are each covered by a dedicated test case.
+  - [ ] External calls (Keystone context/DB) are mocked, not hit against a live Postgres instance.
+- Do NOT: write integration tests that spin up a real database in this ticket.
+
+### 9c. Test Execution
+
+- Command to run tests: `cd api && npx vitest run`
+- CRITICAL: All new/modified tests must pass locally before the "Final Action" push step in Section 5.
+
+## 10. Acceptance Criteria
 
 - [ ] The code is pushed to the remote branch `feature/jwt-auth`.
 - [ ] `POST /api/auth/login` with valid credentials returns a `200` with `accessToken`, `refreshToken`, and `user` data.
@@ -169,3 +198,4 @@
 - [ ] The Keystone Admin UI cookie-based login still works as before.
 - [ ] The `refreshToken` field is hidden from the Admin UI (create, list, and item views).
 - [ ] The server refuses to start if `JWT_SECRET` or `JWT_REFRESH_SECRET` environment variables are missing.
+- [ ] All tests defined in Section 9 pass.
