@@ -21,6 +21,8 @@ import { createAuth } from '@keystone-6/auth'
 // see https://keystonejs.com/docs/apis/session for the session docs
 import { statelessSessions } from '@keystone-6/core/session'
 
+import type { JwtPayload } from './lib/jwt'
+
 // withAuth is a function we can use to wrap our base configuration
 const { withAuth } = createAuth({
   listKey: 'User',
@@ -51,9 +53,29 @@ const { withAuth } = createAuth({
 const sessionMaxAge = 60 * 60 * 24 * 30
 
 // you can find out more at https://keystonejs.com/docs/apis/session#session-api
-const session = statelessSessions({
+const cookieSession = statelessSessions({
   maxAge: sessionMaxAge,
   secret: process.env.SESSION_SECRET,
 })
+
+// Custom session strategy that supports both the cookie-based sessions used by
+// the Admin UI and JWT-based sessions used by external API clients.
+//   - `get` first tries the cookie session, then falls back to the decoded JWT
+//     payload attached to the request by `jwtAuthMiddleware` (see lib/auth-middleware.ts).
+//   - `start`/`end` are unchanged: JWT clients issue/revoke tokens via
+//     /api/auth/login|logout instead of cookie start/end.
+const session = {
+  ...cookieSession,
+  get: async (args: Parameters<typeof cookieSession.get>[0]) => {
+    const existingSession = await cookieSession.get(args)
+    if (existingSession) return existingSession
+
+    const req = args.context.req as (typeof args.context.req & { jwtPayload?: JwtPayload }) | undefined
+    const jwtPayload = req?.jwtPayload
+    if (!jwtPayload) return undefined
+
+    return { itemId: jwtPayload.sub, listKey: 'User', data: null }
+  },
+}
 
 export { withAuth, session }
