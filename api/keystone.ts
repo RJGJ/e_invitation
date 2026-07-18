@@ -14,6 +14,9 @@ import { lists } from './schema'
 // when you write your list-level access control functions, as they typically rely on session data
 import { withAuth, session } from './auth'
 
+import { jwtAuthMiddleware } from './lib/auth-middleware'
+import { createAuthRouter } from './routes/auth'
+
 import dotenv from 'dotenv'
 dotenv.config({ path: '.env' })
 
@@ -21,6 +24,14 @@ export default withAuth(
   config({
     server: {
       port: Number.parseInt(process.env.APP_PORT || '3000'),
+      extendExpressApp: (app, commonContext) => {
+        // Verify JWTs on incoming requests and attach the decoded payload
+        // to req.jwtPayload for the session strategy to consume.
+        app.use(jwtAuthMiddleware)
+
+        // REST endpoints for JWT-based login/refresh/logout.
+        app.use('/api/auth', createAuthRouter(commonContext))
+      },
     },
     db: {
       provider: 'postgresql',
