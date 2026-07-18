@@ -10,6 +10,7 @@ type User {
   postsCount(where: PostWhereInput! = {}): Int
   createdAt: DateTime
   isAdmin: Boolean
+  refreshToken: String
 }
 
 type PasswordState {
@@ -33,6 +34,7 @@ input UserWhereInput {
   posts: PostManyRelationFilter
   createdAt: DateTimeNullableFilter
   isAdmin: BooleanFilter
+  refreshToken: StringNullableFilter
 }
 
 input IDFilter {
@@ -102,12 +104,28 @@ input BooleanFilter {
   not: BooleanFilter
 }
 
+input StringNullableFilter {
+  equals: String
+  in: [String!]
+  notIn: [String!]
+  lt: String
+  lte: String
+  gt: String
+  gte: String
+  contains: String
+  startsWith: String
+  endsWith: String
+  mode: QueryMode
+  not: StringNullableFilter
+}
+
 input UserOrderByInput {
   id: OrderDirection
   name: OrderDirection
   email: OrderDirection
   createdAt: OrderDirection
   isAdmin: OrderDirection
+  refreshToken: OrderDirection
 }
 
 enum OrderDirection {
@@ -122,6 +140,7 @@ input UserUpdateInput {
   posts: PostRelateToManyForUpdateInput
   createdAt: DateTime
   isAdmin: Boolean
+  refreshToken: String
 }
 
 input PostRelateToManyForUpdateInput {
@@ -143,6 +162,7 @@ input UserCreateInput {
   posts: PostRelateToManyForCreateInput
   createdAt: DateTime
   isAdmin: Boolean
+  refreshToken: String
 }
 
 input PostRelateToManyForCreateInput {

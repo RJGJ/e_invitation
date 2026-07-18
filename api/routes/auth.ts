@@ -7,6 +7,13 @@ import {
 
 import type { Context } from '.keystone/types'
 
+type AuthenticateUserWithPasswordResult = {
+  authenticateUserWithPassword?: {
+    item?: { id: string; name: string; email: string; isAdmin: boolean }
+    message?: string
+  }
+}
+
 export function createAuthRouter(commonContext: Context) {
   const router = Router()
 
@@ -26,7 +33,10 @@ export function createAuthRouter(commonContext: Context) {
 
     try {
       // Use Keystone's built-in authentication to validate credentials
-      const result = await commonContext.graphql.raw({
+      const result = await commonContext.graphql.raw<
+        AuthenticateUserWithPasswordResult,
+        { email: string; password: string }
+      >({
         query: `
           mutation($email: String!, $password: String!) {
             authenticateUserWithPassword(email: $email, password: $password) {
@@ -47,7 +57,7 @@ export function createAuthRouter(commonContext: Context) {
         variables: { email, password },
       })
 
-      const authResult = result.data?.authenticateUserWithPassword as any
+      const authResult = result.data?.authenticateUserWithPassword
 
       if (!authResult?.item) {
         return res.status(401).json({ error: 'Invalid email or password' })
