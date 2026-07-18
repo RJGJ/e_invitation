@@ -32,8 +32,14 @@ export function createAuthRouter(commonContext: Context) {
     }
 
     try {
+      // Bind the context to this request/response: authenticateUserWithPassword's
+      // resolver always calls sessionStrategy.start() as a side effect, and the
+      // cookie-based strategy needs a real `res` to attach the Set-Cookie header to
+      // (it silently no-ops, returning FAILURE, on the unbound commonContext).
+      const requestContext = await commonContext.withRequest(req, res)
+
       // Use Keystone's built-in authentication to validate credentials
-      const result = await commonContext.graphql.raw<
+      const result = await requestContext.graphql.raw<
         AuthenticateUserWithPasswordResult,
         { email: string; password: string }
       >({
