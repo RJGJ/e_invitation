@@ -41,10 +41,10 @@ _Provide exact shapes for props, API responses, or DB schemas to prevent the AI 
 
 _Instructions for how the agent should handle branching and committing._
 
-- Base Branch: [e.g., Branch off from 'develop' and ensure you pull latest changes first.]
-- Branch Naming Convention: [e.g., feature/[ticket-ID]-brief-description]
-- Target Branch Name: [e.g., feature/auth-123-avatar-upload]
-- Commit Standard: [e.g., Use Conventional Commits. Commits must be atomic per step.]
+- Base Branch: [e.g., Branch off from 'dev' and ensure you pull latest changes first.]
+- Branch Naming Convention: [e.g., feature/ai-[ticket-ID]-brief-description]
+- Target Branch Name: [e.g., feature/ai-auth-123-avatar-upload]
+- Commit Standard: [e.g., Use Conventional Commits. Commits must be atomic per step.] CRITICAL: dont mention the ai agent name or or brand used
 - Final Action: [e.g., Push to remote and output the git push command used.]
 
 ## 6. File Operations
