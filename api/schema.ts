@@ -16,6 +16,7 @@ import {
   password,
   timestamp,
   select,
+  checkbox,
 } from '@keystone-6/core/fields'
 
 // the document field is a more complicated field, so it has it's own package
@@ -57,6 +58,7 @@ export const lists = {
         // this sets the timestamp to Date.now() when the user is first created
         defaultValue: { kind: 'now' },
       }),
+      isAdmin: checkbox(),
     },
   }),
 

@@ -18,6 +18,7 @@ model User {
   password  String
   posts     Post[]    @relation("Post_author")
   createdAt DateTime? @default(now())
+  isAdmin   Boolean   @default(false)
 }
 
 model Post {
