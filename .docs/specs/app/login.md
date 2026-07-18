@@ -11,7 +11,7 @@
 - Existing API: The backend (`api/`, KeystoneJS 6 + Express) has a fully implemented and unit-tested JWT auth flow (`.docs/specs/api/jwt-auth.md`, `.docs/plans/jwt-auth-plan.md`). Dev server runs on `http://localhost:3002` (from `api/.env`'s `APP_PORT`).
 - Existing API Contract (reproduced in full so this doc is self-contained):
   - `POST /api/auth/login` — body `{ email: string, password: string }`.
-    - `200` → `{ accessToken: string (JWT), refreshToken: string (opaque hex), user: { id: string, name: string, email: string, isAdmin: boolean } }`
+    - `200` → `{ accessToken: string (JWT), refreshToken: string (opaque hex), user: { id: string, name: string, email: string } }`
     - `400` → `{ error: string }` (missing email or password)
     - `401` → `{ error: "Invalid email or password" }` — **enumeration-safe**: this exact message is returned for both a wrong password and an unknown email. Do not build UI that distinguishes the two cases.
     - `500` → `{ error: string }`
@@ -21,7 +21,7 @@
     - `401` → `{ error: "Invalid or expired refresh token" }`
   - `POST /api/auth/logout` — body `{ refreshToken: string }`.
     - Always `200` → `{ success: true }`, regardless of whether the token was valid — the API deliberately never reveals token validity here.
-  - Access token: JWT, **24 hour** expiry, payload `{ sub, email, isAdmin, iat, exp }`. Used as `Authorization: Bearer <accessToken>` on subsequent authenticated calls (e.g. `/api/graphql`).
+  - Access token: JWT, **24 hour** expiry, payload `{ sub, email, iat, exp }`. Used as `Authorization: Bearer <accessToken>` on subsequent authenticated calls (e.g. `/api/graphql`).
   - Refresh token: opaque random string, **single-device only** — the API stores exactly one refresh token per user, so logging in again on another device invalidates this device's refresh token. A subsequent `/api/auth/refresh` call from this device will then 401. The client must treat that as "you've been logged out elsewhere" and route to the login screen — not crash or retry silently.
 - Existing UI Components: None — no design system, no reusable widgets exist yet.
 
@@ -46,6 +46,7 @@
 - REST contracts: see Section 2 above (reproduced in full there).
 
 - `User` (Dart, [freezed](https://pub.dev/packages/freezed) immutable data class with generated JSON parsing):
+
   ```dart
   @freezed
   class User with _$User {
@@ -53,7 +54,6 @@
       required String id,
       required String name,
       required String email,
-      required bool isAdmin,
     }) = _User;
 
     factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
@@ -61,6 +61,7 @@
   ```
 
 - `AuthFailure` (Dart, freezed sealed union, implements `Exception` so it can still be thrown/caught):
+
   ```dart
   @freezed
   sealed class AuthFailure with _$AuthFailure implements Exception {
@@ -70,6 +71,7 @@
     const factory AuthFailure.server() = ServerFailure;
   }
   ```
+
   This is the single source of truth for UI error-mapping (Section 8) — match exhaustively via `.when()`, not `is`-checks, so an unhandled variant is a compile error, not a silent gap.
 
 - `AuthState` (Dart, freezed union — describes long-lived **session status** only, never in-flight login-attempt state):
@@ -153,7 +155,7 @@ Folder structure is deliberately flat (`lib/config/`, `lib/models/`, `lib/servic
   2. A stored access token is present and not expired (checked locally by decoding its `exp` claim via `jwt_decoder` — no signature verification needed client-side, since the server re-validates on every real request anyway) → `AuthState.authenticated(user)` directly, no network call.
   3. Access token missing or expired, but a refresh token is stored → call `POST /api/auth/refresh` exactly once. Success → store the new access token, `AuthState.authenticated(user)`. Failure (401 — including the single-device "logged in elsewhere" case) → clear stored tokens, `AuthState.unauthenticated()` → `/login`. Must not crash or retry silently.
 - Token refresh interceptor (in `api_client.dart`), on any `401` from an authenticated request:
-  1. Skip retry if the failing request *was* the `/api/auth/refresh` call itself, or has already been retried once — enforces exactly one refresh-and-retry, never a loop.
+  1. Skip retry if the failing request _was_ the `/api/auth/refresh` call itself, or has already been retried once — enforces exactly one refresh-and-retry, never a loop.
   2. Guard concurrent 401s behind a single in-flight refresh (e.g. a shared `Completer`) so several simultaneous requests share one `/refresh` call instead of each firing their own.
   3. Refresh success → persist the new access token, update `AuthState`, re-dispatch the original request with the new header.
   4. Refresh failure → clear stored tokens, flip `AuthState` to `unauthenticated()` (the router's redirect then sends the user to `/login` from wherever they were), and reject the original error.
@@ -189,7 +191,7 @@ Folder structure is deliberately flat (`lib/config/`, `lib/models/`, `lib/servic
 ### 9c. Test Execution
 
 - Command to run tests: `cd app && flutter test` (unit/widget) / `cd app && patrol test` (E2E).
-- Environment precondition for 9b: `patrol test` drives the *real* compiled app against the *real* running API (dev DB), not a mock — this requires the API running locally at the configured `API_BASE_URL` and a known seeded test user to exist in its database. This is a meaningful deviation from the fully-mocked unit tests in 9a and must be satisfied manually (or by a CI setup step) before running Patrol; this ticket does not build a seeding script.
+- Environment precondition for 9b: `patrol test` drives the _real_ compiled app against the _real_ running API (dev DB), not a mock — this requires the API running locally at the configured `API_BASE_URL` and a known seeded test user to exist in its database. This is a meaningful deviation from the fully-mocked unit tests in 9a and must be satisfied manually (or by a CI setup step) before running Patrol; this ticket does not build a seeding script.
 - `patrol_cli` must be activated globally (`dart pub global activate patrol_cli`) and `patrol bootstrap` run once to scaffold native Android/iOS test runners before `patrol test` will work.
 - CRITICAL: All new/modified tests must pass locally before the "Final Action" push step in Section 5.
 
