@@ -46,3 +46,6 @@ app.*.map.json
 
 # Environment config (contains the API base URL for local dev)
 **/.env
+
+# Local DevTools extension settings
+devtools_options.yaml

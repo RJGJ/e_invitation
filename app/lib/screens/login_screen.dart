@@ -27,18 +27,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    await ref.read(loginControllerProvider.notifier).submit(
-          _emailController.text.trim(),
-          _passwordController.text,
-        );
+    await ref
+        .read(loginControllerProvider.notifier)
+        .submit(_emailController.text.trim(), _passwordController.text);
   }
 
   String _mapFailure(AuthFailure failure) => failure.when(
-        invalidCredentials: () => 'Invalid email or password',
-        validation: (_) => 'Please check your email and password and try again.',
-        network: () => 'Something went wrong. Please try again.',
-        server: () => 'Something went wrong. Please try again.',
-      );
+    invalidCredentials: () => 'Invalid email or password',
+    validation: (_) => 'Please check your email and password and try again.',
+    network: () => 'Something went wrong. Please try again.',
+    server: () => 'Something went wrong. Please try again.',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -61,8 +60,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(labelText: 'Email'),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return 'Email is required';
-                    if (!_emailRegex.hasMatch(value)) return 'Enter a valid email address';
+                    if (value == null || value.isEmpty) {
+                      return 'Email is required';
+                    }
+                    if (!_emailRegex.hasMatch(value)) {
+                      return 'Enter a valid email address';
+                    }
                     return null;
                   },
                 ),
@@ -74,7 +77,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   obscureText: true,
                   decoration: const InputDecoration(labelText: 'Password'),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return 'Password is required';
+                    if (value == null || value.isEmpty)
+                      return 'Password is required';
                     return null;
                   },
                 ),
@@ -85,7 +89,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     padding: const EdgeInsets.only(bottom: 16),
                     child: Text(
                       _mapFailure(loginState.error as AuthFailure),
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ),
                 ElevatedButton(
