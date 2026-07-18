@@ -30,7 +30,6 @@ _Provide exact shapes for props, API responses, or DB schemas to prevent the AI 
 
 - Expected API Payload:
   { "userId": "string", "fileUrl": "string" }
-
 - Component Props Needed:
   interface AvatarUploadProps {
   currentUrl: string | null;
@@ -73,7 +72,41 @@ _How the system should behave when things go wrong within this specific feature.
 - If [condition A]: [e.g., The file is > 5MB, show a red toast error saying "File too large".]
 - If [condition B]: [e.g., The network request fails, leave the old avatar in place and do not update the DB.]
 
-## 9. Acceptance Criteria
+## 9. Testing Requirements
+
+_Determine the testing approach based on project type. Pick ONE path below (or both, if the feature spans API + UI) and delete the other._
+
+**Project type:** [API-only / Includes UI / Full-stack]
+
+### 9a. If API-only → Unit Testing
+
+- Test Framework: [e.g., Jest, Vitest, pytest — match existing project convention.]
+- Test File Location: [e.g., co-locate as `*.test.ts` next to the source file, or in `__tests__/`.]
+- Coverage Required:
+  - [ ] Happy path: [e.g., Valid payload returns 200 and expected response shape.]
+  - [ ] Validation errors: [e.g., Missing/malformed fields return 400 with correct error message.]
+  - [ ] Auth/permissions: [e.g., Unauthenticated request returns 401.]
+  - [ ] Edge cases from Section 8 above are each covered by a dedicated test case.
+  - [ ] External calls (DB, storage, third-party APIs) are mocked, not hit live.
+- Do NOT: [e.g., write integration tests that spin up a real database in this ticket.]
+
+### 9b. If Includes UI → End-to-End Testing (Playwright / Patrol)
+
+- Test Framework: Playwright for web/JS UI — **or Patrol if the project's UI is Flutter** (Playwright cannot drive a Flutter app's native widget tree).
+- Test File Location: [e.g., `e2e/[feature-name].spec.ts` for Playwright, or `integration_test/[feature_name]_test.dart` for Patrol]
+- Coverage Required:
+  - [ ] Happy path: [e.g., User uploads a valid image and sees it reflected in the UI without a page reload.]
+  - [ ] Error states from Section 8 are each triggered and asserted (e.g., oversized file shows the correct toast).
+  - [ ] Loading/optimistic UI state is asserted (e.g., spinner or placeholder shown while upload is in-flight).
+  - [ ] Component renders correctly using existing selectors/test-ids — add `data-testid` attributes (Playwright) or `Key`s (Patrol/Flutter) if missing rather than relying on brittle selectors.
+- Do NOT: [e.g., add visual regression/screenshot tests in this ticket unless explicitly requested.]
+
+### 9c. Test Execution
+
+- Command to run tests: [e.g., `npm run test` / `npx playwright test` for web UI, or `patrol test` for Flutter UI]
+- CRITICAL: All new/modified tests must pass locally before the "Final Action" push step in Section 5.
+
+## 10. Acceptance Criteria
 
 _Verifiable facts that prove this specific feature slice is complete._
 
@@ -81,3 +114,4 @@ _Verifiable facts that prove this specific feature slice is complete._
 - [ ] [e.g., The uploaded image successfully saves to the storage bucket.]
 - [ ] [e.g., The users table updates with the new URL.]
 - [ ] [e.g., The UI optimistically updates to show the new avatar immediately.]
+- [ ] All tests defined in Section 9 pass.
