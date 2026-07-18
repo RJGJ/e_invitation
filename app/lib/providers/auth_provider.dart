@@ -25,7 +25,14 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> logout() async {
     final refreshToken = await _tokenStorage.readRefreshToken();
     if (refreshToken != null) {
-      await _authApi.logout(refreshToken);
+      // Best-effort: the API always returns 200 per its contract and
+      // AuthApi.logout() already swallows its own DioExceptions, but stay
+      // defensive here too so a session is always cleared regardless.
+      try {
+        await _authApi.logout(refreshToken);
+      } catch (_) {
+        // ignore
+      }
     }
     await forceLogout();
   }
