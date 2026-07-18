@@ -59,6 +59,15 @@ export const lists = {
         defaultValue: { kind: 'now' },
       }),
       isAdmin: checkbox(),
+
+      refreshToken: text({
+        ui: {
+          itemView: { fieldMode: 'hidden' },
+          listView: { fieldMode: 'hidden' },
+          createView: { fieldMode: 'hidden' },
+        },
+        db: { isNullable: true },
+      }),
     },
   }),
 
