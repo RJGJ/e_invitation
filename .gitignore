@@ -1,0 +1,7 @@
+# Graphify local and personal artifacts
+graphify-out/cache/
+graphify-out/cost.json
+graphify-out/memory/
+graphify-out/reflections/
+graphify-out/.graphify_*
+graphify-out/20??-??-??/
