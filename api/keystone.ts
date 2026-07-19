@@ -16,6 +16,7 @@ import { withAuth, session } from './auth'
 
 import { jwtAuthMiddleware } from './lib/auth-middleware'
 import { createAuthRouter } from './routes/auth'
+import { mediaStorage } from './lib/media-storage'
 
 import dotenv from 'dotenv'
 dotenv.config({ path: '.env' })
@@ -31,6 +32,11 @@ export default withAuth(
 
         // REST endpoints for JWT-based login/refresh/logout.
         app.use('/api/auth', createAuthRouter(commonContext))
+
+        // Media uploads go through Keystone's standard GraphQL mutations
+        // (Media.image is a native image() field) — no custom route needed.
+        // For the local driver, Keystone auto-mounts the /uploads static
+        // route itself via storageConfig.localImages.serverRoute.
       },
     },
     db: {
@@ -45,5 +51,6 @@ export default withAuth(
     },
     lists,
     session,
+    storage: mediaStorage.storageConfig,
   }),
 )

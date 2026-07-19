@@ -15,8 +15,8 @@ import {
   relationship,
   password,
   timestamp,
-  select,
   checkbox,
+  image,
 } from '@keystone-6/core/fields'
 
 // the document field is a more complicated field, so it has it's own package
@@ -26,6 +26,8 @@ import { document } from '@keystone-6/fields-document'
 // when using Typescript, you can refine your types to a stricter subset by importing
 // the generated types from '.keystone/types'
 import { type Lists } from '.keystone/types'
+
+import { mediaStorage } from './lib/media-storage'
 
 export const lists = {
   User: list({
@@ -53,6 +55,9 @@ export const lists = {
       // we can use this field to see what Posts this User has authored
       //   more on that in the Post list below
       posts: relationship({ ref: 'Post.author', many: true }),
+
+      // Media files (images, etc.) this User has uploaded — see the Media list below.
+      media: relationship({ ref: 'Media.uploadedBy', many: true }),
 
       createdAt: timestamp({
         // this sets the timestamp to Date.now() when the user is first created
@@ -155,6 +160,72 @@ export const lists = {
       name: text(),
       // this can be helpful to find out all the Posts associated with a Tag
       posts: relationship({ ref: 'Post.tags', many: true }),
+    },
+  }),
+
+  // An uploaded image (e.g. an Event cover photo). Keystone's image() field
+  // provides the actual upload widget in the Admin UI and auto-derives
+  // width/height/filesize/extension from the real file bytes on upload — no
+  // custom upload code needed. Which backend (local/s3/gcs) it's stored in
+  // is fixed for every record by lib/media-storage.ts, resolved once from
+  // STORAGE_DRIVER at server startup — there is no per-upload choice.
+  Media: list({
+    // "Media" is already plural in English — GraphQL requires the list key
+    // and its plural query name to differ, so pick one explicitly.
+    graphql: { plural: 'MediaItems' },
+
+    access: {
+      operation: {
+        // Uploaded media is referenced from public-facing invitation pages,
+        // so anyone can read it.
+        query: () => true,
+        create: ({ session }) => Boolean(session),
+        update: ({ session }) => Boolean(session),
+        delete: ({ session }) => Boolean(session),
+      },
+      filter: {
+        // Soft-deleted media is hidden from every caller, including the uploader.
+        query: () => ({ deletedAt: { equals: null } }),
+        update: ({ session }) =>
+          session?.data?.isAdmin
+            ? true
+            : { uploadedBy: { id: { equals: session?.itemId } } },
+        delete: ({ session }) =>
+          session?.data?.isAdmin
+            ? true
+            : { uploadedBy: { id: { equals: session?.itemId } } },
+      },
+    },
+
+    hooks: {
+      resolveInput: {
+        // Force uploadedBy to the requesting session's user, ignoring
+        // whatever (if anything) the client passed in.
+        create: ({ resolvedData, context }) => ({
+          ...resolvedData,
+          uploadedBy: { connect: { id: context.session?.itemId } },
+        }),
+      },
+    },
+
+    fields: {
+      image: image({ storage: mediaStorage.activeStorageName }),
+
+      uploadedBy: relationship({
+        ref: 'User.media',
+        many: false,
+        // Always hook-forced from the session — never hand-editable.
+        ui: { itemView: { fieldMode: 'read' } },
+      }),
+
+      createdAt: timestamp({
+        defaultValue: { kind: 'now' },
+        ui: {
+          createView: { fieldMode: 'hidden' },
+          itemView: { fieldMode: 'read' },
+        },
+      }),
+      deletedAt: timestamp(),
     },
   }),
 } satisfies Lists
