@@ -2,61 +2,60 @@
 
 ## 1. Feature Overview
 
-**Description:** Add a dedicated `Media` list to the KeystoneJS API schema plus a pluggable storage layer that uploads files to local disk (development), Amazon S3, or Google Cloud Storage, selected at server startup via an env var. Add a REST upload/delete endpoint since binary file upload does not go through Keystone's GraphQL API.
-**Business Value:** `Event.coverImageUrl` and `Event.gallery` (see `.docs/specs/api/event-model.md`) currently only accept pre-existing URL strings — there is no way to actually upload an image. This spec provides that upload path and a `Media` record to track ownership/lifecycle, in a storage-provider-agnostic way so local dev doesn't require real cloud credentials.
+**Description:** Add a `Media` list to the KeystoneJS API schema built around Keystone's native `image()` field, backed by a pluggable storage config (local disk for development, Amazon S3, or Google Cloud Storage), selected once at server startup via an env var. Uploads go through Keystone's standard GraphQL mutations (multipart upload) — there is no custom REST endpoint and no custom upload code, since Keystone's `image()` field already provides an Admin UI upload widget and auto-derives file metadata from the actual bytes.
+**Business Value:** `Event.coverImageUrl` and `Event.gallery` (see `.docs/specs/api/event-model.md`) currently only accept pre-existing URL strings — there is no way to actually upload an image. This spec provides that upload path and a `Media` record to track ownership/lifecycle, in a storage-provider-agnostic way so local dev doesn't require real cloud credentials, and so an admin can upload/browse media directly from Keystone's Admin UI without hand-typing metadata that should come from the file itself.
 
 ## 2. Current System State (Crucial)
 
-- Existing Infrastructure: KeystoneJS 6 (`@keystone-6/core ^6.0.0`) on Express, entry point `api/keystone.ts`, lists in `api/schema.ts`. JWT auth already implemented (`api/lib/jwt.ts`, `api/lib/auth-middleware.ts`, `api/auth.ts`) — `context.session` is `{ itemId, listKey: 'User', data }` for both cookie and JWT requests.
-- Existing REST Pattern: `api/routes/auth.ts` defines `createAuthRouter(commonContext)`, mounted in `api/keystone.ts` via `server.extendExpressApp`. This spec follows the same pattern for a new `api/routes/media.ts`.
+- Existing Infrastructure: KeystoneJS 6 (`@keystone-6/core ^6.0.0`) on Express, entry point `api/keystone.ts`, lists in `api/schema.ts`. JWT auth already implemented (`api/lib/jwt.ts`, `api/lib/auth-middleware.ts`, `api/auth.ts`) — `context.session` is `{ itemId, listKey: 'User', data }` for both cookie and JWT requests. **Known gap**: JWT-authenticated sessions always get `data: null` (see `api/auth.ts`'s custom `session.get`), so `session?.data?.isAdmin` is always falsy over JWT even for real admins. This is pre-existing and out of scope to fix here — `Media`'s access control inherits it the same way `Event`'s does.
+- Existing Access Control Precedent: `.docs/specs/api/event-model.md` establishes the pattern this repo uses for owned resources — public `query`, session-required `create`, owner-or-`isAdmin` `update`/`delete`, and a `deletedAt`-based soft-delete filter excluding deleted items from all default queries. This spec reuses that exact pattern for `Media`.
 - Existing Env Vars (`api/.env`, `api/.env.example`): `APP_PORT`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `SESSION_SECRET`, `JWT_SECRET`, `JWT_REFRESH_SECRET`.
-- Existing Access Control Precedent: `.docs/specs/api/event-model.md` establishes the pattern this repo now uses for owned resources — public `query`, session-required `create`, owner-or-`isAdmin` `update`/`delete`, and a `deletedAt`-based soft-delete filter excluding deleted items from all default queries. This spec reuses that exact pattern for `Media`.
-- No file upload handling (no `multer` or equivalent), no cloud SDKs (`@aws-sdk/client-s3`, `@google-cloud/storage`), and no `Media` list currently exist in `api/`.
+- **Revision history**: an earlier version of this feature built a fully custom `Media` list (`filename`/`mimeType`/`size`/`driver`/`storageKey`/`url`/`width`/`height` scalar fields) plus a hand-rolled storage driver abstraction (`api/lib/storage/{local,s3,gcs}.ts`) and REST routes (`api/routes/media.ts`). That approach had two real problems surfaced in use: (1) `driver` was a manually-typed required `select` field in Keystone's Admin UI — even though the REST route auto-set it server-side, anyone creating a record through the Admin UI had to pick a value by hand every time; (2) `width`/`height` were never actually computed anywhere (confirmed absent from the REST route's `data` object, always `null`), and every field was a plain scalar with no real upload widget behind it. This spec supersedes that design entirely in favor of Keystone's native `image()` field, which solves both problems using code Keystone already bundles (`file-type` for mime/extension sniffing, `image-size` for width/height, its own S3 client) — see Section 4.
 - The `Event` list itself (from `event-model.md`) may or may not be implemented yet when this ticket is picked up — this spec does not depend on it and does not modify `Event`. Wiring `Media` into `Event.coverImageUrl`/`gallery` is explicitly deferred (see Section 3).
 
 ## 3. Scope & Boundaries
 
 - IN SCOPE (Do this now):
-  - Add a `Media` list to `api/schema.ts` tracking uploaded file metadata (see Section 4).
-  - Add a storage driver abstraction (`api/lib/storage/`) with three implementations: `local` (filesystem, dev default), `s3` (Amazon S3 via `@aws-sdk/client-s3`), `gcs` (Google Cloud Storage via `@google-cloud/storage`).
-  - Driver selection is controlled entirely by the `STORAGE_DRIVER` env var (`local` | `s3` | `gcs`), read once at server startup — no runtime switching, no per-request override.
-  - A REST endpoint `POST /api/media/upload` (multipart/form-data, authenticated) that uploads a single file through the active driver and creates a `Media` record.
-  - A REST endpoint `DELETE /api/media/:id` (authenticated, owner or `isAdmin`) that soft-deletes the `Media` record (sets `deletedAt`).
-  - When `STORAGE_DRIVER=local`, serve uploaded files back over HTTP via `express.static` so local dev has working URLs without any cloud account.
-  - File validation: mime-type allow-list (`image/jpeg`, `image/png`, `image/webp`, `image/gif`) and a max upload size (10 MB), enforced by `multer` limits before the driver is ever called.
+  - Add a `Media` list to `api/schema.ts` with a single `image()` field (see Section 4) plus `uploadedBy`/`createdAt`/`deletedAt`.
+  - Add `api/lib/media-storage.ts`: a pure config-resolution module that reads `STORAGE_DRIVER` (`local` | `s3` | `gcs`) once at server startup and returns Keystone's top-level `storage` config map plus which single named entry the `image()` field should use. No per-upload/per-record driver choice is possible — it's fixed for the whole running server.
+  - Wire the resolved `storage` config into `config({ storage })` in `api/keystone.ts`.
+  - For the `local` driver, rely on Keystone's own `serverRoute` config to auto-mount the `/uploads` static route — no manual `express.static` wiring.
   - `.env.example` updated with all new variables, grouped and commented per driver.
-  - Unit tests for the `Media` access control, the upload/delete routes (with driver mocked), and each storage driver's `upload()` contract (with the underlying `fs`/AWS SDK/GCS SDK client mocked).
+  - Unit tests for the `Media` access control/hook and for `api/lib/media-storage.ts`'s config-resolution logic (env → config shape, missing-var errors, unknown-driver errors).
 - DEFERRED (Do NOT do this yet - saved for future tickets):
   - DO NOT wire `Media` into `Event.coverImageUrl`/`Event.gallery` — that remains plain URL strings for now; a future ticket will decide whether those become relationships to `Media`.
-  - DO NOT implement image resizing/thumbnailing, video/file-type support beyond the image allow-list, or client-side crop UI.
-  - DO NOT implement presigned/signed upload URLs (direct browser-to-S3/GCS upload) — all uploads proxy through the API server in this ticket.
+  - DO NOT implement image resizing/thumbnailing, video/non-image file support, or client-side crop UI — Keystone's `image()` field itself only accepts `jpg`/`png`/`webp`/`gif` (enforced by its bundled `file-type` sniffing), which is an acceptable scope boundary, not a gap to fill.
+  - DO NOT implement presigned/signed upload URLs (direct browser-to-S3/GCS upload) — all uploads proxy through the API server's GraphQL endpoint.
   - DO NOT implement actual deletion of the underlying blob/object from S3/GCS/disk when a `Media` record is soft-deleted — the object is left in storage; a future cleanup/garbage-collection job handles reclaiming orphaned objects.
   - DO NOT implement private/signed read URLs, CDN integration, or cache invalidation — uploaded objects are assumed publicly readable at a stable URL.
   - DO NOT add virus/malware scanning of uploaded files.
-  - DO NOT build any `app/` (Flutter) UI for uploading media — API only.
-  - DO NOT support multi-file/batch upload in a single request — one file per `POST /api/media/upload` call.
+  - DO NOT build any `app/` (Flutter) UI for uploading media, and DO NOT design/document the client-side multipart GraphQL upload contract for the app — API and Admin UI only for this ticket. Any client (including the app) uploads via the standard `createMedia`/`updateMedia` GraphQL mutations following the `graphql-multipart-request-spec`; how a specific client library does that is out of scope here.
+  - DO NOT preserve the original client-supplied filename as a separate column — Keystone's `image()` field doesn't store one (only a generated `id` + `extension`); this is an accepted limitation, not a bug to work around.
+  - DO NOT build any migration tooling for switching `STORAGE_DRIVER` after uploads already exist. Because `image()` URLs are generated dynamically at query time from the *currently* active storage config (not stored per-record), switching drivers after uploading orphans previously-uploaded assets — their bytes don't move, and their generated URL will point at the new backend. This is an inherent tradeoff of the native-field design, called out here rather than worked around.
+  - GCS support is **experimental**: Keystone's built-in storage config only has `kind: 'local'` and `kind: 's3'` — there is no native `kind: 'gcs'`. This spec routes GCS through the `s3` kind's optional `endpoint` override, pointed at GCS's S3-interoperability API, authenticated with GCS **HMAC keys** (a different credential type than a GCS service account). This has not been verified against a live GCS bucket in development (no live credentials available) — treat it as unverified until confirmed against a real bucket.
 
 ## 4. Interfaces & Data Contracts
 
 - `Media` Keystone list fields:
   ```typescript
   {
-    id: string;                 // Keystone default `id` (uuid)
-    filename: string;            // text, required — original client-supplied filename
-    mimeType: string;            // text, required
-    size: number;                 // integer, required — bytes
-    driver: 'local' | 's3' | 'gcs'; // select, required — recorded at upload time, not read from current env, so switching STORAGE_DRIVER later doesn't corrupt historical records
-    storageKey: string;           // text, required — local relative path or S3/GCS object key
-    url: string;                  // text, required — publicly resolvable URL, computed and stored at upload time
-    width?: number;                // integer, optional — populated only if easily available; not a hard requirement
-    height?: number;               // integer, optional
-    uploadedBy: User;              // relationship, required, ref 'User.media', many: false — auto-set server-side, never from client input
-    createdAt: Date;                // timestamp, defaultValue: { kind: 'now' }
-    deletedAt?: Date;                // timestamp, optional — soft-delete marker, same convention as Event
+    id: string;                    // Keystone default `id` (uuid)
+    image: {                        // image() field — Keystone auto-derives all of this from the actual file bytes on upload
+      id: string;                    // generated storage key/filename (not the original filename)
+      extension: 'jpg' | 'png' | 'webp' | 'gif'; // sniffed from magic bytes via `file-type`, not trusted from a client-declared mime type
+      width: number;                  // via `image-size`
+      height: number;                  // via `image-size`
+      filesize: number;                 // buffer length, in bytes
+      url: string;                       // computed dynamically at query time from the currently active storage config — NOT a persisted column
+    };
+    uploadedBy: User;                     // relationship, required, ref 'User.media', many: false — auto-set server-side via hook, never from client input; ui.itemView.fieldMode: 'read'
+    createdAt: Date;                       // timestamp, defaultValue: { kind: 'now' }; ui.createView.fieldMode: 'hidden', ui.itemView.fieldMode: 'read'
+    deletedAt?: Date;                       // timestamp, optional — soft-delete marker, same convention as Event
   }
   ```
+  Note: there is no `filename`/`mimeType`/`size`/`driver`/`storageKey` scalar field and no separate `width`/`height` top-level field — all of that collapses into the single `image` field, whose sub-values Keystone computes and exposes via GraphQL (e.g. `{ image { url width height filesize extension } }`).
 
-- Access control (identical pattern to `Event`, see `.docs/specs/api/event-model.md` Section 4):
+- Access control (identical pattern to `Event`, see `.docs/specs/api/event-model.md` Section 4 — unchanged from the original design):
   ```typescript
   access: {
     operation: {
@@ -75,45 +74,52 @@
   }
   ```
 
-- Storage driver interface (`api/lib/storage/types.ts`):
+- `resolveInput.create` hook (unchanged in spirit from the original design — still force-connects the uploader):
   ```typescript
-  export interface UploadInput {
-    buffer: Buffer;
-    key: string;        // pre-generated, e.g. `${randomUUID()}-${sanitizedFilename}`
-    mimeType: string;
-  }
-
-  export interface UploadResult {
-    key: string;
-    url: string;
-  }
-
-  export interface StorageDriver {
-    kind: 'local' | 's3' | 'gcs';
-    upload(input: UploadInput): Promise<UploadResult>;
+  hooks: {
+    resolveInput: {
+      create: ({ resolvedData, context }) => ({
+        ...resolvedData,
+        uploadedBy: { connect: { id: context.session?.itemId } },
+      }),
+    },
   }
   ```
 
-- `POST /api/media/upload` (multipart/form-data, field name `file`, `Authorization: Bearer <token>` or cookie session required):
-  - Response (201):
-    ```json
-    {
-      "id": "uuid",
-      "filename": "photo.jpg",
-      "mimeType": "image/jpeg",
-      "size": 204800,
-      "driver": "local",
-      "url": "http://localhost:3002/uploads/<key>",
-      "createdAt": "2026-07-19T00:00:00.000Z"
-    }
-    ```
-  - Response (400): `{ "error": "Unsupported file type" }` or `{ "error": "File too large" }`
-  - Response (401): `{ "error": "Authentication required" }`
+- Media storage config-resolution module (`api/lib/media-storage.ts`):
+  ```typescript
+  export interface ResolvedMediaStorage {
+    storageConfig: Record<string, StorageConfig>; // Keystone's own StorageConfig type, from '@keystone-6/core/types'
+    activeStorageName: string;                      // the single key `image({ storage: ... })` should reference
+  }
 
-- `DELETE /api/media/:id` (authenticated, owner or `isAdmin`):
-  - Response (200): `{ "success": true }`
-  - Response (401): `{ "error": "Authentication required" }`
-  - Response (404): `{ "error": "Media not found" }` (covers both "doesn't exist" and "not yours" — no enumeration leak)
+  export function resolveMediaStorage(env?: NodeJS.ProcessEnv): ResolvedMediaStorage
+  export const mediaStorage: ResolvedMediaStorage; // module-load-time singleton, fails fast like lib/jwt.ts does for missing secrets
+  ```
+  - `local`: `{ kind: 'local', type: 'image', storagePath: STORAGE_LOCAL_DIR, generateUrl: path => `${STORAGE_LOCAL_PUBLIC_URL}${path}`, serverRoute: { path: '/uploads' } }` — Keystone auto-mounts `/uploads` itself.
+  - `s3`: `{ kind: 's3', type: 'image', bucketName: S3_BUCKET, region: S3_REGION, accessKeyId: S3_ACCESS_KEY_ID, secretAccessKey: S3_SECRET_ACCESS_KEY, generateUrl: S3_PUBLIC_URL_BASE ? ... : undefined }`.
+  - `gcs` (experimental): `{ kind: 's3', type: 'image', bucketName: GCS_BUCKET, region: 'auto', endpoint: 'https://storage.googleapis.com', accessKeyId: GCS_HMAC_ACCESS_KEY_ID, secretAccessKey: GCS_HMAC_SECRET_ACCESS_KEY, forcePathStyle: true, generateUrl: GCS_PUBLIC_URL_BASE ? ... : undefined }`.
+
+- Example client mutation (multipart GraphQL, per `graphql-multipart-request-spec` — this is what the Admin UI itself does under the hood, and what any API client, including a future app integration, would need to follow):
+  ```graphql
+  mutation($file: Upload!) {
+    createMedia(data: { image: { upload: $file } }) {
+      id
+      image { url width height filesize extension }
+      uploadedBy { id }
+    }
+  }
+  ```
+  A `curl` example (per the multipart spec's `operations`/`map` fields):
+  ```
+  curl <api>/api/graphql \
+    -H "Authorization: Bearer <token>" \
+    -H "apollo-require-preflight: true" \
+    -F operations='{ "query": "mutation($file: Upload!) { createMedia(data: {image: {upload: $file}}) { id image { url width height filesize extension } } }", "variables": { "file": null } }' \
+    -F map='{ "0": ["variables.file"] }' \
+    -F 0=@photo.jpg
+  ```
+  Note the `apollo-require-preflight: true` header — Apollo Server's CSRF prevention rejects `multipart/form-data` requests without it or an equivalent non-simple header.
 
 - New env vars (`api/.env`, `api/.env.example`):
   ```
@@ -131,11 +137,10 @@
   S3_SECRET_ACCESS_KEY=
   S3_PUBLIC_URL_BASE=
 
-  # gcs driver
+  # gcs driver (experimental — via S3-interoperability API, HMAC keys)
   GCS_BUCKET=
-  GCS_PROJECT_ID=
-  GCS_CLIENT_EMAIL=
-  GCS_PRIVATE_KEY=
+  GCS_HMAC_ACCESS_KEY_ID=
+  GCS_HMAC_SECRET_ACCESS_KEY=
   GCS_PUBLIC_URL_BASE=
   ```
 
@@ -150,51 +155,37 @@
 ## 6. File Operations
 
 - Create:
-  - `api/lib/storage/types.ts` — `StorageDriver`, `UploadInput`, `UploadResult` interfaces.
-  - `api/lib/storage/local.ts` — filesystem driver, writes under `STORAGE_LOCAL_DIR`, returns `${STORAGE_LOCAL_PUBLIC_URL}/${key}`.
-  - `api/lib/storage/s3.ts` — S3 driver using `@aws-sdk/client-s3`'s `PutObjectCommand`, returns `${S3_PUBLIC_URL_BASE || default virtual-hosted-style URL}/${key}`.
-  - `api/lib/storage/gcs.ts` — GCS driver using `@google-cloud/storage`, returns `${GCS_PUBLIC_URL_BASE || default storage.googleapis.com URL}/${key}`.
-  - `api/lib/storage/index.ts` — factory: reads `STORAGE_DRIVER` once, validates required env vars for the selected driver are present (throw a clear startup error if not), exports the singleton `StorageDriver` instance.
-  - `api/lib/storage/local.test.ts`, `api/lib/storage/s3.test.ts`, `api/lib/storage/gcs.test.ts`, `api/lib/storage/index.test.ts`
-  - `api/routes/media.ts` — Express router: `createMediaRouter(commonContext)` exposing `POST /upload` and `DELETE /:id`, using `multer` with memory storage and the limits from Section 4.
-  - `api/routes/media.test.ts`
-  - `api/schema.test.ts` — extend if it already exists (from `event-model`), otherwise create, adding `Media` access-control tests alongside/independent of `Event` tests.
+  - `api/lib/media-storage.ts` — config-resolution module described in Section 4.
+  - `api/lib/media-storage.test.ts` — unit tests for `resolveMediaStorage`/the singleton.
 - Modify:
-  - `api/schema.ts` — add the `Media` list; add `media: relationship({ ref: 'Media.uploadedBy', many: true })` to `User.fields`.
-  - `api/keystone.ts` — mount `createMediaRouter(commonContext)` at `/api/media`; when `STORAGE_DRIVER === 'local'`, add `app.use('/uploads', express.static(path.resolve(STORAGE_LOCAL_DIR)))`.
-  - `api/.env` / `api/.env.example` — add the new variables from Section 4.
-  - `api/package.json` — add `multer`, `@types/multer`, `@aws-sdk/client-s3`, `@google-cloud/storage` (all installed regardless of which driver is active in a given environment — this keeps `npm install` deterministic across dev/staging/prod).
+  - `api/schema.ts` — replace/add the `Media` list (`image`, `uploadedBy`, `createdAt`, `deletedAt` fields, access control, `resolveInput.create` hook); `User.media` back-relation (`relationship({ ref: 'Media.uploadedBy', many: true })`) is unchanged.
+  - `api/keystone.ts` — add `storage: mediaStorage.storageConfig` to the top-level `config({...})` object; no route mounting or manual static-file serving needed.
+  - `api/schema.test.ts` — `Media` access-control + hook tests (same assertions as before; not specific to the removed scalar fields).
+  - `api/.env` / `api/.env.example` — add the variables from Section 4.
+- Do NOT create: any custom REST route file for media, any custom storage-driver-per-provider file, any `multer`/`@aws-sdk/client-s3`/`@google-cloud/storage` dependency — none of this is needed; Keystone bundles equivalent functionality (`graphql-upload`, `file-type`, `image-size`, its own S3 client) internally.
 
 ## 7. Implementation Steps
 
-1. Step 1: Checkout the new branch `feature/media-storage` from `dev`.
-2. Step 2: Install `multer`, `@types/multer`, `@aws-sdk/client-s3`, `@google-cloud/storage`.
-3. Step 3: Add the new env vars to `api/.env` (with a working local-driver default so `npm run dev` works out of the box) and `api/.env.example`.
-4. Step 4: Create `api/lib/storage/types.ts` with the `StorageDriver` interface.
-5. Step 5: Implement `api/lib/storage/local.ts` — write the buffer to `STORAGE_LOCAL_DIR/<key>` (creating the directory if missing), return the public URL built from `STORAGE_LOCAL_PUBLIC_URL`.
-6. Step 6: Implement `api/lib/storage/s3.ts` — `PutObjectCommand` against `S3_BUCKET`/`S3_REGION` with the given key/buffer/mimeType, return the resulting public URL.
-7. Step 7: Implement `api/lib/storage/gcs.ts` — upload the buffer to `GCS_BUCKET` under the given key via `@google-cloud/storage`, return the resulting public URL.
-8. Step 8: Implement `api/lib/storage/index.ts` — factory reading `STORAGE_DRIVER`, instantiating and exporting exactly one of the three drivers, throwing a startup error if the selected driver's required env vars are missing.
-9. Step 9: Add the `media` back-relation to `User.fields` and the `Media` list (with access control from Section 4) to `api/schema.ts`.
-10. Step 10: Add a `resolveInput` hook on `Media` create that sets `uploadedBy` to `{ connect: { id: session.itemId } }` server-side, ignoring any client-supplied value.
-11. Step 11: Create `api/routes/media.ts` — `multer` memory storage with mime-type allow-list + 10 MB limit; `POST /upload` generates a key (`${randomUUID()}-${sanitizedFilename}`), calls the active driver's `upload()`, creates the `Media` record via `context.db.Media.createOne` (with `uploadedBy` from the authenticated session — reject with 401 if no session), and returns the record. `DELETE /:id` sets `deletedAt` via `context.db.Media.updateOne`, relying on Keystone's own `access.filter.delete`/`update`-equivalent semantics for authorization (or an explicit ownership check before the update, if a plain `context.db` call bypasses list access control in this Keystone version — verify which is the case before writing the route).
-12. Step 12: Wire `createMediaRouter(commonContext)` and (conditionally) the `/uploads` static file server into `api/keystone.ts`'s `server.extendExpressApp`.
-13. Step 13: Run `keystone dev` to generate/apply the Prisma migration for the new `Media` table.
-14. Step 14: Write unit tests per Section 9 (mocking `fs`, the AWS SDK client, and the GCS SDK client — no real cloud calls in CI) and run them.
-15. Step 15: Manually verify locally: start the server with `STORAGE_DRIVER=local`, `POST` a small image to `/api/media/upload` with a valid session, confirm the returned URL serves the file, then commit and push.
+1. Step 1: Branch `feature/media-storage` from `dev` (or continue on it, if already checked out from a prior iteration of this ticket).
+2. Step 2: Add the new env vars to `api/.env` (with a working local-driver default so `npm run dev` works out of the box) and `api/.env.example`.
+3. Step 3: Create `api/lib/media-storage.ts` — `resolveMediaStorage(env)` reading `STORAGE_DRIVER`, validating the selected driver's required vars (collect *all* missing names into one thrown error), returning `{ storageConfig, activeStorageName }`; export the module-load-time singleton `mediaStorage`. Call `dotenv.config({ path: '.env' })` at the top of this file (matching `lib/jwt.ts`'s pattern) — schema.ts's import of this module executes before `keystone.ts`'s own `dotenv.config()` call, since import statements compile to requires in source order.
+4. Step 4: In `api/schema.ts`, replace the `Media` list's fields with `image: image({ storage: mediaStorage.activeStorageName })`, `uploadedBy` (add `ui.itemView.fieldMode: 'read'`), `createdAt` (add `ui.createView.fieldMode: 'hidden'`, `ui.itemView.fieldMode: 'read'`), `deletedAt`. Keep `access` and `hooks.resolveInput.create` as already described.
+5. Step 5: In `api/keystone.ts`, import `mediaStorage` and add `storage: mediaStorage.storageConfig` to `config({...})`.
+6. Step 6: Run `keystone dev` (or `postinstall`) against the dev Postgres container to regenerate `schema.prisma`/`schema.graphql`/`.keystone` types. Expect Prisma to drop any old scalar `Media` columns and add `image_id`/`image_extension`/`image_width`/`image_height`/`image_filesize` — confirm this against the actual dev DB (`TRUNCATE`/drop old test rows first if needed; this is dev-only data).
+7. Step 7: Write unit tests per Section 9 and run them.
+8. Step 8: Manually verify: start `npm run dev`, obtain a session, send a multipart GraphQL `createMedia` mutation (see the `curl` example in Section 4) or use the Admin UI directly, confirm `width`/`height`/`filesize`/`extension` come back correctly and the returned URL serves the file, confirm anonymous `createMedia` is denied, confirm `updateMedia(data: { deletedAt: ... })` excludes the record from a subsequent `mediaItems` query.
+9. Step 9: Clean up any test user/records created during the manual verification, then commit and push.
 
 ## 8. Error Handling & Edge Cases
 
 - If `STORAGE_DRIVER` is unset: default to `local` (safe dev default), do not throw.
 - If `STORAGE_DRIVER=s3` or `gcs` and the corresponding required env vars are missing: throw a startup error immediately with a clear message naming the missing variable(s), preventing the server from running against a misconfigured backend.
 - If `STORAGE_DRIVER` is set to an unrecognized value: throw a startup error immediately.
-- If the uploaded file's mime type is not in the allow-list: `multer`'s `fileFilter` rejects it before it reaches the driver; return `400 { "error": "Unsupported file type" }`.
-- If the uploaded file exceeds 10 MB: `multer`'s `limits.fileSize` rejects it; return `400 { "error": "File too large" }`.
-- If no file is present in the request body: return `400 { "error": "No file provided" }`.
-- If the request to `/api/media/upload` or `/api/media/:id` (DELETE) has no valid session: return `401 { "error": "Authentication required" }` — unlike GraphQL list access control (which fails silently/generically), this is a plain REST route so an explicit check is needed before touching the driver or DB.
-- If the storage driver's `upload()` call itself throws (e.g. network error, bucket permission error, disk full): return `500 { "error": "Upload failed" }`; do not create a `Media` record for a failed upload.
-- If `DELETE /api/media/:id` targets a record that doesn't exist or isn't owned by the caller (and caller isn't `isAdmin`): return `404 { "error": "Media not found" }` (no distinction between "not found" and "not yours").
+- If an uploaded file isn't `jpg`/`png`/`webp`/`gif` (per `file-type` sniffing) or dimensions can't be determined: Keystone's `image()` field rejects the upload with a GraphQL error — no custom validation code needed.
+- If a `createMedia`/`updateMedia`/`deleteMedia` request has no session: standard Keystone GraphQL access-denied error (per `access.operation`) — no custom REST-style error body, unlike the original REST design.
+- If a non-owner, non-admin session attempts `updateMedia`/`deleteMedia` on someone else's record: excluded by `access.filter`, standard Keystone access-denied error.
 - Soft-deleted `Media` (`deletedAt` set): excluded from all default query results for every caller, same as `Event`. The underlying stored object is not deleted (see Section 3 deferred list).
+- Switching `STORAGE_DRIVER` after records already exist: previously-uploaded assets' URLs will resolve against the *new* backend, not where their bytes actually live — this will 404 for pre-existing records. No migration tooling exists for this (see Section 3).
 
 ## 9. Testing Requirements
 
@@ -205,19 +196,13 @@
 - Test Framework: Vitest (matches existing `api/vitest.config.ts` convention).
 - Test File Location: Co-located `*.test.ts` next to each source file, as listed in Section 6.
 - Coverage Required:
-  - [ ] `local` driver: `upload()` writes the buffer under `STORAGE_LOCAL_DIR` and returns a URL built from `STORAGE_LOCAL_PUBLIC_URL` (mock `fs`/`fs/promises`).
-  - [ ] `s3` driver: `upload()` calls `PutObjectCommand` with the correct bucket/key/body/contentType and returns the expected public URL (mock the `@aws-sdk/client-s3` client — no real AWS calls).
-  - [ ] `gcs` driver: `upload()` calls the GCS SDK with the correct bucket/key/buffer and returns the expected public URL (mock `@google-cloud/storage` — no real GCS calls).
-  - [ ] Storage factory: selects the correct driver class for each value of `STORAGE_DRIVER`; defaults to `local` when unset; throws on an unrecognized value; throws when a selected driver's required env vars are missing.
-  - [ ] Happy path: `POST /api/media/upload` with a valid session and a valid image file returns `201` with a `Media` record whose `uploadedBy` is the session's `itemId`, regardless of any client-supplied uploader value.
-  - [ ] Validation errors: `POST /api/media/upload` with an unsupported mime type returns `400`; with an oversized file returns `400`; with no file returns `400`.
-  - [ ] Auth/permissions: `POST /api/media/upload` with no session returns `401`.
-  - [ ] Auth/permissions: `DELETE /api/media/:id` with no session returns `401`.
-  - [ ] Auth/permissions: `DELETE /api/media/:id` by a non-owner, non-admin session returns `404`.
-  - [ ] Auth/permissions: `DELETE /api/media/:id` by the owner, or by an `isAdmin` session for any record, succeeds and sets `deletedAt`.
-  - [ ] Anonymous `query` of `Media` via GraphQL succeeds (public read); a soft-deleted `Media` item is excluded from those results for anonymous, owner, and non-owner callers alike.
-  - [ ] Edge cases from Section 8 above are each covered by a dedicated test case.
-  - [ ] All cloud/network/filesystem calls are mocked — no real S3, GCS, or live database hit in this ticket's tests.
+  - [ ] `resolveMediaStorage`: builds the correct `StorageConfig` shape for each of `local`/`s3`/`gcs`; defaults to `local` when `STORAGE_DRIVER` is unset; throws (naming the missing var) when a selected driver's required vars are incomplete; throws for an unrecognized driver value.
+  - [ ] The `mediaStorage` singleton throws at import time when misconfigured (`vi.resetModules()` + `vi.stubEnv` + dynamic `import`), and constructs successfully with a valid config.
+  - [ ] `Media.access.operation.query()` is always `true`; `create`/`update`/`delete` require a session.
+  - [ ] `Media.access.filter.query()` excludes soft-deleted items; `update`/`delete` filters scope to the owner for a non-admin session and allow everything for an admin session.
+  - [ ] `Media.hooks.resolveInput.create` forces `uploadedBy` to the session's `itemId`, ignoring any client-supplied value in `resolvedData`.
+  - [ ] Edge cases from Section 8 that are pure-function-testable (config resolution) are each covered; access-control/GraphQL-level behavior (upload rejection for bad file types, access-denied errors) is verified manually per Section 7 Step 8, not via mocked unit tests, since it now lives inside Keystone's own field/access-control runtime rather than custom route code.
+  - [ ] No real cloud SDK calls, filesystem writes, or live database hits in this ticket's automated tests.
 - Do NOT: write integration tests that spin up a real database, a real S3/GCS bucket, or write to the real filesystem in this ticket.
 
 ### 9c. Test Execution
@@ -228,11 +213,12 @@
 ## 10. Acceptance Criteria
 
 - [ ] The code is pushed to the remote branch `feature/media-storage`.
-- [ ] The `Media` list exists in `api/schema.ts` with every field from Section 4, correctly typed, and `User.media` back-relation resolves correctly.
-- [ ] `STORAGE_DRIVER=local` works out of the box in development with no cloud credentials: an uploaded file is retrievable at the returned URL.
-- [ ] `STORAGE_DRIVER=s3` and `STORAGE_DRIVER=gcs` are implemented behind the same `StorageDriver` interface and covered by mocked unit tests, without requiring real cloud credentials to run the test suite.
-- [ ] `POST /api/media/upload` requires authentication, enforces the mime-type allow-list and 10 MB size limit, and creates a `Media` record whose `uploadedBy` cannot be spoofed by the client.
-- [ ] `DELETE /api/media/:id` requires authentication and ownership (or `isAdmin`), and performs a soft delete (`deletedAt`) without removing the underlying stored object.
-- [ ] Anonymous GraphQL queries of `Media` succeed; soft-deleted records never appear in query results for any caller.
-- [ ] `.env.example` documents every new variable, grouped by driver.
+- [ ] The `Media` list exists in `api/schema.ts` with a single `image()` field plus `uploadedBy`/`createdAt`/`deletedAt`, and `User.media` back-relation resolves correctly.
+- [ ] `STORAGE_DRIVER=local` works out of the box in development with no cloud credentials: an uploaded file's URL (auto-mounted by Keystone at `/uploads`) actually serves the file.
+- [ ] `STORAGE_DRIVER=s3` builds a valid `StorageConfig` and is covered by mocked/pure-function unit tests without requiring real cloud credentials to run the test suite. `STORAGE_DRIVER=gcs` likewise builds a valid config via the `s3` kind + endpoint override, but is explicitly documented as unverified against a live GCS bucket.
+- [ ] A `createMedia` mutation (multipart GraphQL upload) requires authentication, and the resulting record's `uploadedBy` cannot be spoofed by the client.
+- [ ] Uploading an image auto-populates `width`/`height`/`filesize`/`extension` correctly, with no custom code computing them.
+- [ ] `updateMedia`/`deleteMedia` require authentication and ownership (or `isAdmin`); soft-deleting via `deletedAt` excludes the record from subsequent queries without removing the underlying stored object.
+- [ ] Anonymous GraphQL queries of `mediaItems` succeed; soft-deleted records never appear in query results for any caller.
+- [ ] `.env.example` documents every new variable, grouped by driver, with the GCS section clearly marked experimental.
 - [ ] All tests defined in Section 9 pass.
