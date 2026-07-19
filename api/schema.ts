@@ -15,9 +15,8 @@ import {
   relationship,
   password,
   timestamp,
-  select,
   checkbox,
-  integer,
+  image,
 } from '@keystone-6/core/fields'
 
 // the document field is a more complicated field, so it has it's own package
@@ -27,6 +26,8 @@ import { document } from '@keystone-6/fields-document'
 // when using Typescript, you can refine your types to a stricter subset by importing
 // the generated types from '.keystone/types'
 import { type Lists } from '.keystone/types'
+
+import { mediaStorage } from './lib/media-storage'
 
 export const lists = {
   User: list({
@@ -162,9 +163,12 @@ export const lists = {
     },
   }),
 
-  // Tracks uploaded file metadata. The actual bytes live in whichever backend
-  // lib/storage/index.ts resolves to (local disk / S3 / GCS) — this list only
-  // records where the file ended up and who uploaded it.
+  // An uploaded image (e.g. an Event cover photo). Keystone's image() field
+  // provides the actual upload widget in the Admin UI and auto-derives
+  // width/height/filesize/extension from the real file bytes on upload — no
+  // custom upload code needed. Which backend (local/s3/gcs) it's stored in
+  // is fixed for every record by lib/media-storage.ts, resolved once from
+  // STORAGE_DRIVER at server startup — there is no per-upload choice.
   Media: list({
     // "Media" is already plural in English — GraphQL requires the list key
     // and its plural query name to differ, so pick one explicitly.
@@ -205,29 +209,22 @@ export const lists = {
     },
 
     fields: {
-      filename: text({ validation: { isRequired: true } }),
-      mimeType: text({ validation: { isRequired: true } }),
-      size: integer({ validation: { isRequired: true } }),
+      image: image({ storage: mediaStorage.activeStorageName }),
 
-      // Recorded at upload time so switching STORAGE_DRIVER later doesn't
-      // corrupt how existing records are interpreted.
-      driver: select({
-        options: [
-          { label: 'Local', value: 'local' },
-          { label: 'S3', value: 's3' },
-          { label: 'GCS', value: 'gcs' },
-        ],
-        validation: { isRequired: true },
+      uploadedBy: relationship({
+        ref: 'User.media',
+        many: false,
+        // Always hook-forced from the session — never hand-editable.
+        ui: { itemView: { fieldMode: 'read' } },
       }),
-      storageKey: text({ validation: { isRequired: true } }),
-      url: text({ validation: { isRequired: true } }),
 
-      width: integer(),
-      height: integer(),
-
-      uploadedBy: relationship({ ref: 'User.media', many: false }),
-
-      createdAt: timestamp({ defaultValue: { kind: 'now' } }),
+      createdAt: timestamp({
+        defaultValue: { kind: 'now' },
+        ui: {
+          createView: { fieldMode: 'hidden' },
+          itemView: { fieldMode: 'read' },
+        },
+      }),
       deletedAt: timestamp(),
     },
   }),

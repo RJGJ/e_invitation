@@ -62,18 +62,18 @@ describe('Media.access.filter', () => {
 describe('Media hooks.resolveInput.create', () => {
   it('forces uploadedBy to the session user, ignoring any client-supplied value', () => {
     const resolveInputCreate = (
-      lists.Media.hooks as {
+      lists.Media.hooks as unknown as {
         resolveInput: { create: (args: { resolvedData: Record<string, unknown>; context: { session?: { itemId: string } } }) => Record<string, unknown> }
       }
     ).resolveInput.create
 
     const result = resolveInputCreate({
-      resolvedData: { filename: 'a.jpg', uploadedBy: { connect: { id: 'spoofed-user' } } },
+      resolvedData: { image: { upload: 'some-file-data' }, uploadedBy: { connect: { id: 'spoofed-user' } } },
       context: { session: { itemId: 'real-user' } },
     })
 
     expect(result).toEqual({
-      filename: 'a.jpg',
+      image: { upload: 'some-file-data' },
       uploadedBy: { connect: { id: 'real-user' } },
     })
   })

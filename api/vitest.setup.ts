@@ -8,7 +8,7 @@
 process.env.JWT_SECRET = 'test-jwt-secret-do-not-use-in-production'
 process.env.JWT_REFRESH_SECRET = 'test-jwt-refresh-secret-do-not-use-in-production'
 
-// lib/storage/index.ts's `storageDriver` singleton throws at import time if
+// lib/media-storage.ts's `mediaStorage` singleton throws at import time if
 // the active STORAGE_DRIVER's required env vars are unset. Default to a
 // valid `local` config here for the same reason as the JWT secrets above.
 process.env.STORAGE_DRIVER = 'local'

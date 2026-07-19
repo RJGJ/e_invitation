@@ -41,19 +41,16 @@ model Tag {
 }
 
 model Media {
-  id           String    @id @default(uuid()) @postgresql.Uuid
-  filename     String    @default("")
-  mimeType     String    @default("")
-  size         Int
-  driver       String
-  storageKey   String    @default("")
-  url          String    @default("")
-  width        Int?
-  height       Int?
-  uploadedBy   User?     @relation("Media_uploadedBy", fields: [uploadedById], references: [id])
-  uploadedById String?   @map("uploadedBy") @postgresql.Uuid
-  createdAt    DateTime? @default(now())
-  deletedAt    DateTime?
+  id              String    @id @default(uuid()) @postgresql.Uuid
+  image_id        String?
+  image_filesize  Int?
+  image_width     Int?
+  image_height    Int?
+  image_extension String?
+  uploadedBy      User?     @relation("Media_uploadedBy", fields: [uploadedById], references: [id])
+  uploadedById    String?   @map("uploadedBy") @postgresql.Uuid
+  createdAt       DateTime? @default(now())
+  deletedAt       DateTime?
 
   @@index([uploadedById])
 }
