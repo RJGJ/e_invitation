@@ -18,6 +18,7 @@ model User {
   password     String
   posts        Post[]    @relation("Post_author")
   media        Media[]   @relation("Media_uploadedBy")
+  events       Event[]   @relation("Event_author")
   createdAt    DateTime? @default(now())
   isAdmin      Boolean   @default(false)
   refreshToken String?
@@ -49,8 +50,40 @@ model Media {
   image_extension String?
   uploadedBy      User?     @relation("Media_uploadedBy", fields: [uploadedById], references: [id])
   uploadedById    String?   @map("uploadedBy") @postgresql.Uuid
+  coverOfEvent    Event?    @relation("Event_coverImage")
+  galleryOfEvents Event[]   @relation("Event_gallery")
   createdAt       DateTime? @default(now())
   deletedAt       DateTime?
 
   @@index([uploadedById])
+}
+
+model Event {
+  id              String    @id @default(uuid()) @postgresql.Uuid
+  author          User?     @relation("Event_author", fields: [authorId], references: [id])
+  authorId        String?   @map("author") @postgresql.Uuid
+  title           String    @default("")
+  description     String    @default("")
+  type            String
+  startDate       DateTime
+  endDate         DateTime?
+  timezone        String    @default("")
+  venueName       String    @default("")
+  address         String    @default("")
+  latitude        Float?
+  longitude       Float?
+  coverImage      Media?    @relation("Event_coverImage", fields: [coverImageId], references: [id])
+  coverImageId    String?   @unique @map("coverImage") @postgresql.Uuid
+  gallery         Media[]   @relation("Event_gallery")
+  allowPlusOne    Boolean   @default(false)
+  rsvpDeadline    DateTime?
+  requireApproval Boolean   @default(false)
+  primaryColor    String    @default("")
+  secondaryColor  String    @default("")
+  fontFamily      String    @default("")
+  createdAt       DateTime? @default(now())
+  updatedAt       DateTime?
+  deletedAt       DateTime?
+
+  @@index([authorId])
 }
