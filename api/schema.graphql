@@ -8,6 +8,8 @@ type User {
   password: PasswordState
   posts(where: PostWhereInput! = {}, orderBy: [PostOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: PostWhereUniqueInput): [Post!]
   postsCount(where: PostWhereInput! = {}): Int
+  media(where: MediaWhereInput! = {}, orderBy: [MediaOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: MediaWhereUniqueInput): [Media!]
+  mediaCount(where: MediaWhereInput! = {}): Int
   createdAt: DateTime
   isAdmin: Boolean
   refreshToken: String
@@ -32,6 +34,7 @@ input UserWhereInput {
   name: StringFilter
   email: StringFilter
   posts: PostManyRelationFilter
+  media: MediaManyRelationFilter
   createdAt: DateTimeNullableFilter
   isAdmin: BooleanFilter
   refreshToken: StringNullableFilter
@@ -88,6 +91,12 @@ input PostManyRelationFilter {
   none: PostWhereInput
 }
 
+input MediaManyRelationFilter {
+  every: MediaWhereInput
+  some: MediaWhereInput
+  none: MediaWhereInput
+}
+
 input DateTimeNullableFilter {
   equals: DateTime
   in: [DateTime!]
@@ -138,6 +147,7 @@ input UserUpdateInput {
   email: String
   password: String
   posts: PostRelateToManyForUpdateInput
+  media: MediaRelateToManyForUpdateInput
   createdAt: DateTime
   isAdmin: Boolean
   refreshToken: String
@@ -150,6 +160,13 @@ input PostRelateToManyForUpdateInput {
   connect: [PostWhereUniqueInput!]
 }
 
+input MediaRelateToManyForUpdateInput {
+  disconnect: [MediaWhereUniqueInput!]
+  set: [MediaWhereUniqueInput!]
+  create: [MediaCreateInput!]
+  connect: [MediaWhereUniqueInput!]
+}
+
 input UserUpdateArgs {
   where: UserWhereUniqueInput!
   data: UserUpdateInput!
@@ -160,6 +177,7 @@ input UserCreateInput {
   email: String
   password: String
   posts: PostRelateToManyForCreateInput
+  media: MediaRelateToManyForCreateInput
   createdAt: DateTime
   isAdmin: Boolean
   refreshToken: String
@@ -168,6 +186,11 @@ input UserCreateInput {
 input PostRelateToManyForCreateInput {
   create: [PostCreateInput!]
   connect: [PostWhereUniqueInput!]
+}
+
+input MediaRelateToManyForCreateInput {
+  create: [MediaCreateInput!]
+  connect: [MediaWhereUniqueInput!]
 }
 
 type Post {
@@ -290,6 +313,112 @@ input TagCreateInput {
   posts: PostRelateToManyForCreateInput
 }
 
+type Media {
+  id: ID!
+  filename: String
+  mimeType: String
+  size: Int
+  driver: String
+  storageKey: String
+  url: String
+  width: Int
+  height: Int
+  uploadedBy: User
+  createdAt: DateTime
+  deletedAt: DateTime
+}
+
+input MediaWhereUniqueInput {
+  id: ID
+}
+
+input MediaWhereInput {
+  AND: [MediaWhereInput!]
+  OR: [MediaWhereInput!]
+  NOT: [MediaWhereInput!]
+  id: IDFilter
+  filename: StringFilter
+  mimeType: StringFilter
+  size: IntFilter
+  driver: StringFilter
+  storageKey: StringFilter
+  url: StringFilter
+  width: IntNullableFilter
+  height: IntNullableFilter
+  uploadedBy: UserWhereInput
+  createdAt: DateTimeNullableFilter
+  deletedAt: DateTimeNullableFilter
+}
+
+input IntFilter {
+  equals: Int
+  in: [Int!]
+  notIn: [Int!]
+  lt: Int
+  lte: Int
+  gt: Int
+  gte: Int
+  not: IntFilter
+}
+
+input IntNullableFilter {
+  equals: Int
+  in: [Int!]
+  notIn: [Int!]
+  lt: Int
+  lte: Int
+  gt: Int
+  gte: Int
+  not: IntNullableFilter
+}
+
+input MediaOrderByInput {
+  id: OrderDirection
+  filename: OrderDirection
+  mimeType: OrderDirection
+  size: OrderDirection
+  driver: OrderDirection
+  storageKey: OrderDirection
+  url: OrderDirection
+  width: OrderDirection
+  height: OrderDirection
+  createdAt: OrderDirection
+  deletedAt: OrderDirection
+}
+
+input MediaUpdateInput {
+  filename: String
+  mimeType: String
+  size: Int
+  driver: String
+  storageKey: String
+  url: String
+  width: Int
+  height: Int
+  uploadedBy: UserRelateToOneForUpdateInput
+  createdAt: DateTime
+  deletedAt: DateTime
+}
+
+input MediaUpdateArgs {
+  where: MediaWhereUniqueInput!
+  data: MediaUpdateInput!
+}
+
+input MediaCreateInput {
+  filename: String
+  mimeType: String
+  size: Int
+  driver: String
+  storageKey: String
+  url: String
+  width: Int
+  height: Int
+  uploadedBy: UserRelateToOneForCreateInput
+  createdAt: DateTime
+  deletedAt: DateTime
+}
+
 """
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
 """
@@ -314,6 +443,12 @@ type Mutation {
   updateTags(data: [TagUpdateArgs!]!): [Tag]
   deleteTag(where: TagWhereUniqueInput!): Tag
   deleteTags(where: [TagWhereUniqueInput!]!): [Tag]
+  createMedia(data: MediaCreateInput!): Media
+  createMediaItems(data: [MediaCreateInput!]!): [Media]
+  updateMedia(where: MediaWhereUniqueInput!, data: MediaUpdateInput!): Media
+  updateMediaItems(data: [MediaUpdateArgs!]!): [Media]
+  deleteMedia(where: MediaWhereUniqueInput!): Media
+  deleteMediaItems(where: [MediaWhereUniqueInput!]!): [Media]
   endSession: Boolean!
   authenticateUserWithPassword(email: String!, password: String!): UserAuthenticationWithPasswordResult
   createInitialUser(data: CreateInitialUserInput!): UserAuthenticationWithPasswordSuccess!
@@ -346,6 +481,9 @@ type Query {
   tag(where: TagWhereUniqueInput!): Tag
   tags(where: TagWhereInput! = {}, orderBy: [TagOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: TagWhereUniqueInput): [Tag!]
   tagsCount(where: TagWhereInput! = {}): Int
+  media(where: MediaWhereUniqueInput!): Media
+  mediaItems(where: MediaWhereInput! = {}, orderBy: [MediaOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: MediaWhereUniqueInput): [Media!]
+  mediaItemsCount(where: MediaWhereInput! = {}): Int
   keystone: KeystoneMeta!
   authenticatedItem: AuthenticatedItem
 }

@@ -17,6 +17,7 @@ import {
   timestamp,
   select,
   checkbox,
+  integer,
 } from '@keystone-6/core/fields'
 
 // the document field is a more complicated field, so it has it's own package
@@ -53,6 +54,9 @@ export const lists = {
       // we can use this field to see what Posts this User has authored
       //   more on that in the Post list below
       posts: relationship({ ref: 'Post.author', many: true }),
+
+      // Media files (images, etc.) this User has uploaded — see the Media list below.
+      media: relationship({ ref: 'Media.uploadedBy', many: true }),
 
       createdAt: timestamp({
         // this sets the timestamp to Date.now() when the user is first created
@@ -155,6 +159,76 @@ export const lists = {
       name: text(),
       // this can be helpful to find out all the Posts associated with a Tag
       posts: relationship({ ref: 'Post.tags', many: true }),
+    },
+  }),
+
+  // Tracks uploaded file metadata. The actual bytes live in whichever backend
+  // lib/storage/index.ts resolves to (local disk / S3 / GCS) — this list only
+  // records where the file ended up and who uploaded it.
+  Media: list({
+    // "Media" is already plural in English — GraphQL requires the list key
+    // and its plural query name to differ, so pick one explicitly.
+    graphql: { plural: 'MediaItems' },
+
+    access: {
+      operation: {
+        // Uploaded media is referenced from public-facing invitation pages,
+        // so anyone can read it.
+        query: () => true,
+        create: ({ session }) => Boolean(session),
+        update: ({ session }) => Boolean(session),
+        delete: ({ session }) => Boolean(session),
+      },
+      filter: {
+        // Soft-deleted media is hidden from every caller, including the uploader.
+        query: () => ({ deletedAt: { equals: null } }),
+        update: ({ session }) =>
+          session?.data?.isAdmin
+            ? true
+            : { uploadedBy: { id: { equals: session?.itemId } } },
+        delete: ({ session }) =>
+          session?.data?.isAdmin
+            ? true
+            : { uploadedBy: { id: { equals: session?.itemId } } },
+      },
+    },
+
+    hooks: {
+      resolveInput: {
+        // Force uploadedBy to the requesting session's user, ignoring
+        // whatever (if anything) the client passed in.
+        create: ({ resolvedData, context }) => ({
+          ...resolvedData,
+          uploadedBy: { connect: { id: context.session?.itemId } },
+        }),
+      },
+    },
+
+    fields: {
+      filename: text({ validation: { isRequired: true } }),
+      mimeType: text({ validation: { isRequired: true } }),
+      size: integer({ validation: { isRequired: true } }),
+
+      // Recorded at upload time so switching STORAGE_DRIVER later doesn't
+      // corrupt how existing records are interpreted.
+      driver: select({
+        options: [
+          { label: 'Local', value: 'local' },
+          { label: 'S3', value: 's3' },
+          { label: 'GCS', value: 'gcs' },
+        ],
+        validation: { isRequired: true },
+      }),
+      storageKey: text({ validation: { isRequired: true } }),
+      url: text({ validation: { isRequired: true } }),
+
+      width: integer(),
+      height: integer(),
+
+      uploadedBy: relationship({ ref: 'User.media', many: false }),
+
+      createdAt: timestamp({ defaultValue: { kind: 'now' } }),
+      deletedAt: timestamp(),
     },
   }),
 } satisfies Lists

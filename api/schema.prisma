@@ -17,6 +17,7 @@ model User {
   email        String    @unique @default("")
   password     String
   posts        Post[]    @relation("Post_author")
+  media        Media[]   @relation("Media_uploadedBy")
   createdAt    DateTime? @default(now())
   isAdmin      Boolean   @default(false)
   refreshToken String?
@@ -37,4 +38,22 @@ model Tag {
   id    String @id @default(uuid()) @postgresql.Uuid
   name  String @default("")
   posts Post[] @relation("Post_tags")
+}
+
+model Media {
+  id           String    @id @default(uuid()) @postgresql.Uuid
+  filename     String    @default("")
+  mimeType     String    @default("")
+  size         Int
+  driver       String
+  storageKey   String    @default("")
+  url          String    @default("")
+  width        Int?
+  height       Int?
+  uploadedBy   User?     @relation("Media_uploadedBy", fields: [uploadedById], references: [id])
+  uploadedById String?   @map("uploadedBy") @postgresql.Uuid
+  createdAt    DateTime? @default(now())
+  deletedAt    DateTime?
+
+  @@index([uploadedById])
 }
