@@ -16,6 +16,8 @@ import {
   password,
   timestamp,
   checkbox,
+  select,
+  float,
   image,
 } from '@keystone-6/core/fields'
 
@@ -58,6 +60,9 @@ export const lists = {
 
       // Media files (images, etc.) this User has uploaded — see the Media list below.
       media: relationship({ ref: 'Media.uploadedBy', many: true }),
+
+      // Events this User has authored — see the Event list below.
+      events: relationship({ ref: 'Event.author', many: true }),
 
       createdAt: timestamp({
         // this sets the timestamp to Date.now() when the user is first created
@@ -218,8 +223,117 @@ export const lists = {
         ui: { itemView: { fieldMode: 'read' } },
       }),
 
+      // A Media item is the cover of at most one Event.
+      coverOfEvent: relationship({ ref: 'Event.coverImage', many: false }),
+      // A Media item may appear in more than one Event's gallery.
+      galleryOfEvents: relationship({ ref: 'Event.gallery', many: true }),
+
       createdAt: timestamp({
         defaultValue: { kind: 'now' },
+        ui: {
+          createView: { fieldMode: 'hidden' },
+          itemView: { fieldMode: 'read' },
+        },
+      }),
+      deletedAt: timestamp(),
+    },
+  }),
+
+  // An invitation event (wedding, birthday, baptism) owned by a User — the
+  // core domain object guests/RSVPs/invites will attach to later.
+  Event: list({
+    access: {
+      operation: {
+        // Invitation pages are meant to be viewed by anyone.
+        query: () => true,
+        create: ({ session }) => Boolean(session),
+        update: ({ session }) => Boolean(session),
+        delete: ({ session }) => Boolean(session),
+      },
+      filter: {
+        // Soft-deleted events are hidden from every caller, including the author.
+        query: () => ({ deletedAt: { equals: null } }),
+        update: ({ session }) =>
+          session?.data?.isAdmin
+            ? true
+            : { author: { id: { equals: session?.itemId } } },
+        delete: ({ session }) =>
+          session?.data?.isAdmin
+            ? true
+            : { author: { id: { equals: session?.itemId } } },
+      },
+    },
+
+    hooks: {
+      resolveInput: {
+        // Force author to the requesting session's user, ignoring whatever
+        // (if anything) the client passed in — same pattern as Media's
+        // uploadedBy hook. Also stamp updatedAt on create.
+        create: ({ resolvedData, context }) => ({
+          ...resolvedData,
+          author: { connect: { id: context.session?.itemId } },
+          updatedAt: new Date(),
+        }),
+        // Keep updatedAt current on every write.
+        update: ({ resolvedData }) => ({
+          ...resolvedData,
+          updatedAt: new Date(),
+        }),
+      },
+    },
+
+    fields: {
+      author: relationship({
+        ref: 'User.events',
+        many: false,
+        // Always hook-forced from the session — never hand-editable.
+        ui: { itemView: { fieldMode: 'read' } },
+      }),
+
+      title: text({ validation: { isRequired: true } }),
+      description: text({ ui: { displayMode: 'textarea' } }),
+
+      type: select({
+        options: [
+          { label: 'Wedding', value: 'wedding' },
+          { label: 'Birthday', value: 'birthday' },
+          { label: 'Baptism', value: 'baptism' },
+          // Debut, Anniversary, BabyShower, Graduation, Corporate, Reunion,
+          // Conference, Party, Other are deferred to a future ticket.
+        ],
+        validation: { isRequired: true },
+      }),
+
+      startDate: timestamp({ validation: { isRequired: true } }),
+      endDate: timestamp(),
+      timezone: text({ validation: { isRequired: true } }),
+
+      venueName: text(),
+      address: text(),
+      latitude: float(),
+      longitude: float(),
+
+      // Connects an existing Media id — no upload happens through this field.
+      coverImage: relationship({ ref: 'Media.coverOfEvent', many: false }),
+      gallery: relationship({ ref: 'Media.galleryOfEvents', many: true }),
+
+      allowPlusOne: checkbox({ defaultValue: false }),
+      rsvpDeadline: timestamp(),
+      requireApproval: checkbox({ defaultValue: false }),
+
+      primaryColor: text(),
+      secondaryColor: text(),
+      fontFamily: text(),
+
+      createdAt: timestamp({
+        defaultValue: { kind: 'now' },
+        ui: {
+          createView: { fieldMode: 'hidden' },
+          itemView: { fieldMode: 'read' },
+        },
+      }),
+      // Always hook-forced (see hooks.resolveInput above) — never hand-editable.
+      updatedAt: timestamp({
         ui: {
           createView: { fieldMode: 'hidden' },
           itemView: { fieldMode: 'read' },
