@@ -10,6 +10,10 @@ This is the standing process for any non-trivial feature in this repo:
 
 Existing spec/plan pairs, for reference on format: `.docs/specs/api/jwt-auth.md` + `.docs/plans/jwt-auth-plan.md`, `.docs/specs/app/login.md` + `.docs/plans/app-login-plan.md`.
 
+## Dev servers
+
+Always kill any server/process you started (`npm run dev`, `keystone dev`, manual `nohup`/background runs, etc.) once you're done with it — check `ps`/`lsof -i :<port>` and kill the actual listening PID, not just a shell wrapper around it (a wrapper PID can exit while the real node process it spawned keeps listening and blocks the port for the user's next run).
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
