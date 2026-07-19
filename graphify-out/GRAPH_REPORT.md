@@ -1,16 +1,16 @@
-# Graph Report - e_invitation  (2026-07-18)
+# Graph Report - e_invitation  (2026-07-19)
 
 ## Corpus Check
-- 62 files · ~33,098 words
+- 63 files · ~33,631 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 491 nodes · 592 edges · 63 communities (28 shown, 35 thin omitted)
+- 505 nodes · 608 edges · 64 communities (29 shown, 35 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 4 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c7f44258`
+- Built from commit: `f1ca7965`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -31,7 +31,7 @@
 - Login Screen Widget Tests
 - Auth API Unit Tests
 - API tsconfig.json
-- Patrol E2E Login Tests
+- fake_token_storage.dart
 - Android MainActivity
 - isAdmin Exclusion Rationale
 - Graphify Project Instructions
@@ -67,10 +67,11 @@
 - Default Flutter Maskable Icon (512)
 - Flutter Web index.html
 - Repo Root README
-- main.dart
-- app_config.dart
-- package:flutter_riverpod/flutter_riverpod.dart
-- LoginScreen
+- package:flutter/material.dart
+- login_screen_test.dart
+- auth_api_test.dart
+- router_provider.dart
+- app_colors.dart
 
 ## God Nodes (most connected - your core abstractions)
 1. `Flutter app pubspec.yaml dependency manifest` - 17 edges
@@ -79,10 +80,10 @@
 4. `AuthFailure` - 12 edges
 5. `AI Feature Spec: App Theme ("LuxeInvite" Design System)` - 11 edges
 6. `AuthState` - 9 edges
-7. `Implementation Plan: LuxeInvite App Theme` - 8 edges
-8. `Proposed Changes` - 8 edges
-9. `jwtAuthMiddleware()` - 8 edges
-10. `authProvider` - 8 edges
+7. `jwtAuthMiddleware()` - 8 edges
+8. `authProvider` - 8 edges
+9. `Implementation Plan: LuxeInvite App Theme` - 8 edges
+10. `Proposed Changes` - 8 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `session` --references--> `extendExpressApp wiring (keystone.ts)`  [AMBIGUOUS]
@@ -104,7 +105,7 @@
 - **JWT Auth REST API Flow** — api_routes_auth_createauthrouter, api_lib_auth_middleware_jwtauthmiddleware, api_lib_jwt_generateaccesstoken, api_lib_jwt_verifyaccesstoken, api_lib_jwt_hashtoken, api_auth_session [INFERRED 0.85]
 - **Login Feature Test Suite** — app_test_services_auth_api_test, app_test_providers_auth_provider_test, app_test_screens_login_screen_test, app_integration_test_login_flow_test [EXTRACTED 1.00]
 
-## Communities (63 total, 35 thin omitted)
+## Communities (64 total, 35 thin omitted)
 
 ### Community 0 - "User & AuthState Freezed Models"
 Cohesion: 0.05
@@ -119,8 +120,8 @@ Cohesion: 0.17
 Nodes (11): createState, dispose, _emailController, _emailRegex, _formKey, _mapFailure, _passwordController, _submit (+3 more)
 
 ### Community 3 - "AuthNotifier Provider"
-Cohesion: 0.08
-Nodes (23): _authApi, build, forceLogout, login, logout, _tokenStorage, tryAutoLogin, _GoRouterRefreshNotifier (+15 more)
+Cohesion: 0.15
+Nodes (12): _authApi, build, forceLogout, login, logout, _tokenStorage, tryAutoLogin, AuthApi get (+4 more)
 
 ### Community 4 - "Dio Client & Design Rationale"
 Cohesion: 0.08
@@ -163,39 +164,43 @@ Cohesion: 0.10
 Nodes (20): 10. Acceptance Criteria, 1. Feature Overview, 2. Current System State (Crucial), 3. Scope & Boundaries, 4. Interfaces & Data Contracts, 5. Git & Version Control Rules, 6. File Operations, 7. Implementation Steps (+12 more)
 
 ### Community 14 - "Auth API Unit Tests"
-Cohesion: 0.21
-Nodes (11): authProvider, submit, build, build, createState, initState, SplashScreen, _SplashScreenState (+3 more)
+Cohesion: 0.32
+Nodes (6): build, createState, package:flutter/material.dart, package:flutter_riverpod/flutter_riverpod.dart, ../providers/auth_provider.dart, ../providers/auth_state.dart
 
 ### Community 15 - "API tsconfig.json"
 Cohesion: 0.25
 Nodes (7): compilerOptions, esModuleInterop, forceConsistentCasingInFileNames, module, noEmit, strict, target
 
-### Community 16 - "Patrol E2E Login Tests"
-Cohesion: 0.29
-Nodes (6): main, _testEmail, _testPassword, package:e_invitation/main.dart, package:flutter_test/flutter_test.dart, package:patrol/patrol.dart
+### Community 16 - "fake_token_storage.dart"
+Cohesion: 0.10
+Nodes (19): main, _testEmail, _testPassword, appService, binding, dartTestGroup, initialize, main (+11 more)
 
-### Community 59 - "main.dart"
+### Community 59 - "package:flutter/material.dart"
 Cohesion: 0.28
 Nodes (8): build, load, main, MyApp, routerProvider, HomeScreen, ConsumerWidget, providers/router_provider.dart
 
-### Community 60 - "app_config.dart"
+### Community 60 - "login_screen_test.dart"
 Cohesion: 0.25
 Nodes (7): Rationale: API_BASE_URL differs per run target (emulator/simulator/device), apiBaseUrl, AppConfig, appConfigProvider, fromEnv, _, package:flutter_dotenv/flutter_dotenv.dart
 
-### Community 61 - "package:flutter_riverpod/flutter_riverpod.dart"
-Cohesion: 0.29
-Nodes (6): build, LoginController, AsyncNotifier, auth_provider.dart, dart:async, package:flutter_riverpod/flutter_riverpod.dart
+### Community 61 - "auth_api_test.dart"
+Cohesion: 0.15
+Nodes (14): build, LoginController, loginControllerProvider, submit, build, LoginScreen, _LoginScreenState, SplashScreen (+6 more)
 
-### Community 62 - "LoginScreen"
-Cohesion: 0.33
-Nodes (6): loginControllerProvider, build, LoginScreen, _LoginScreenState, ConsumerState, ConsumerStatefulWidget
+### Community 62 - "router_provider.dart"
+Cohesion: 0.20
+Nodes (9): refreshNotifier, auth_state.dart, GoRouter, _, package:flutter/foundation.dart, package:go_router/go_router.dart, ../screens/home_screen.dart, ../screens/login_screen.dart (+1 more)
+
+### Community 63 - "app_colors.dart"
+Cohesion: 0.40
+Nodes (5): authProvider, _GoRouterRefreshNotifier, build, initState, ChangeNotifier
 
 ## Ambiguous Edges - Review These
 - `session` → `extendExpressApp wiring (keystone.ts)`  [AMBIGUOUS]
   .docs/plans/jwt-auth-plan.md · relation: references
 
 ## Knowledge Gaps
-- **257 isolated node(s):** `Architecture Overview`, `User Review Required`, `Open Questions`, `[NEW] app/fonts/*.ttf (manual prerequisite — see "User Review Required")`, `[MODIFY] app/pubspec.yaml` (+252 more)
+- **266 isolated node(s):** `cookieSession`, `user`, `Express`, `user`, `name` (+261 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **35 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -204,14 +209,14 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **What is the exact relationship between `session` and `extendExpressApp wiring (keystone.ts)`?**
   _Edge tagged AMBIGUOUS (relation: references) - confidence is low._
-- **Why does `AuthNotifier` connect `Dio Client & Design Rationale` to `User & AuthState Freezed Models`, `JWT Auth Specs & Plans`, `AuthNotifier Provider`, `Secure Token Storage`, `AuthProvider Unit Tests`, `Auth API Unit Tests`, `main.dart`, `package:flutter_riverpod/flutter_riverpod.dart`?**
-  _High betweenness centrality (0.089) - this node is a cross-community bridge._
-- **Why does `Implementation Plan: Login Pages for the Flutter App` connect `JWT Auth Specs & Plans` to `Patrol E2E Login Tests`, `App pubspec.yaml Dependencies`, `AuthProvider Unit Tests`?**
-  _High betweenness centrality (0.084) - this node is a cross-community bridge._
+- **Why does `AuthNotifier` connect `Dio Client & Design Rationale` to `User & AuthState Freezed Models`, `JWT Auth Specs & Plans`, `AuthNotifier Provider`, `Secure Token Storage`, `AuthProvider Unit Tests`, `package:flutter/material.dart`, `auth_api_test.dart`?**
+  _High betweenness centrality (0.086) - this node is a cross-community bridge._
+- **Why does `Implementation Plan: Login Pages for the Flutter App` connect `JWT Auth Specs & Plans` to `fake_token_storage.dart`, `App pubspec.yaml Dependencies`, `AuthProvider Unit Tests`?**
+  _High betweenness centrality (0.085) - this node is a cross-community bridge._
 - **Why does `Flutter app pubspec.yaml dependency manifest` connect `App pubspec.yaml Dependencies` to `JWT Auth Specs & Plans`?**
-  _High betweenness centrality (0.045) - this node is a cross-community bridge._
-- **What connects `Architecture Overview`, `User Review Required`, `Open Questions` to the rest of the system?**
-  _257 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _High betweenness centrality (0.044) - this node is a cross-community bridge._
+- **What connects `cookieSession`, `user`, `Express` to the rest of the system?**
+  _266 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `User & AuthState Freezed Models` be split into smaller, more focused modules?**
   _Cohesion score 0.050170068027210885 - nodes in this community are weakly interconnected._
 - **Should `JWT Auth Specs & Plans` be split into smaller, more focused modules?**
