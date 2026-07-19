@@ -16,6 +16,10 @@ import { withAuth, session } from './auth'
 
 import { jwtAuthMiddleware } from './lib/auth-middleware'
 import { createAuthRouter } from './routes/auth'
+import { createMediaRouter } from './routes/media'
+
+import express from 'express'
+import path from 'node:path'
 
 import dotenv from 'dotenv'
 dotenv.config({ path: '.env' })
@@ -31,6 +35,19 @@ export default withAuth(
 
         // REST endpoints for JWT-based login/refresh/logout.
         app.use('/api/auth', createAuthRouter(commonContext))
+
+        // REST endpoints for media upload/delete.
+        app.use('/api/media', createMediaRouter(commonContext))
+
+        // In local dev (the default), serve uploaded files back over HTTP
+        // so STORAGE_LOCAL_PUBLIC_URL resolves to something real. S3/GCS
+        // serve files directly from the bucket, so this is skipped there.
+        if ((process.env.STORAGE_DRIVER || 'local') === 'local') {
+          app.use(
+            '/uploads',
+            express.static(path.resolve(process.env.STORAGE_LOCAL_DIR || './uploads')),
+          )
+        }
       },
     },
     db: {
