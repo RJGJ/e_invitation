@@ -1,0 +1,65 @@
+# Implementation Plan: Media Storage (`api/`)
+
+## Context
+
+The `event-model` spec deferred image uploads (`Event.coverImageUrl`/`gallery` are plain URL strings, no upload path). This plan implements `.docs/specs/api/media-storage.md`: a dedicated `Media` list plus a pluggable storage driver (local disk for dev, S3, or GCS, chosen via `STORAGE_DRIVER`), so the API can actually accept file uploads without requiring cloud credentials in development. It does **not** touch `Event` — that list doesn't exist in `api/schema.ts` yet (only `User`, `Post`, `Tag` do), and the spec explicitly defers wiring `Media` into `Event` to a future ticket.
+
+Confirmed current state relevant to this plan:
+- `api/schema.ts`: `User`(31)/`Post`(74)/`Tag`(141) only.
+- Test conventions: Vitest; `api/lib/jwt.test.ts` tests pure functions directly; `api/routes/auth.test.ts` uses `supertest` + a local `buildApp()` + shared fixture `api/test/mock-context.ts` (`createMockContext()` → hand-rolled `commonContext.sudo()` / `commonContext.withRequest(req,res)` mocks, `dbUser = { updateOne, findMany }`, never the real `.keystone/types` `Context`).
+- `api/package.json`: no `express` as a direct dep (resolves transitively via `@keystone-6/core`); no `multer`/AWS/GCS SDKs yet.
+- `api/tsconfig.json`: `commonjs`/`esModuleInterop: true` — fine for `@aws-sdk/client-s3` and `@google-cloud/storage` (dual CJS/ESM).
+- `api/.env` exists today with DB/session/JWT vars only — safe to append new keys.
+- `api/keystone.ts`'s `extendExpressApp` currently: `app.use(jwtAuthMiddleware); app.use('/api/auth', createAuthRouter(commonContext))`.
+- **Real gap in the existing session strategy** (`api/auth.ts`): JWT-authenticated sessions always get `data: null` (`return { itemId: jwtPayload.sub, listKey: 'User', data: null }`), so `session?.data?.isAdmin` is always falsy over JWT even for real admins. The `Media` list's own `access.filter` will inherit this gap (same as `Event`'s spec does), but the `DELETE /api/media/:id` route must not rely on `session.data.isAdmin` for its own authorization decision — it needs an explicit DB lookup instead (see Group D).
+
+## Group A — Dependencies & Env
+
+1. **`api/package.json`**: add `multer`, `@aws-sdk/client-s3`, `@google-cloud/storage`, `express` to `dependencies` (check `npm ls express` first to pick a version matching what `@keystone-6/core` already resolves, avoiding a duplicate). Add `@types/multer` to `devDependencies`; only add `@types/express` if `npm ls @types/express` shows it's missing after adding `express` directly.
+2. **`api/.env` / `api/.env.example`**: append (never reorder/remove existing keys) the block from spec Section 4: `STORAGE_DRIVER`, `STORAGE_LOCAL_DIR`, `STORAGE_LOCAL_PUBLIC_URL`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL_BASE`, `GCS_BUCKET`, `GCS_PROJECT_ID`, `GCS_CLIENT_EMAIL`, `GCS_PRIVATE_KEY`, `GCS_PUBLIC_URL_BASE`. In `api/.env` set working local defaults (`STORAGE_DRIVER=local`, `STORAGE_LOCAL_DIR=./uploads`, `STORAGE_LOCAL_PUBLIC_URL=http://localhost:3002/uploads`, matching `APP_PORT=3002`); in `.env.example` leave secrets blank, keep the same local defaults.
+
+## Group B — Storage abstraction (`api/lib/storage/`)
+
+3. **`types.ts`**: `UploadInput { buffer: Buffer; key: string; mimeType: string }`, `UploadResult { key: string; url: string }`, `StorageDriver { kind: 'local'|'s3'|'gcs'; upload(input): Promise<UploadResult> }`. No env reads here.
+4. **`local.ts`**: `createLocalDriver({ dir, publicUrl }): StorageDriver` (config injected, not read from `process.env` internally — keeps it unit-testable). `upload()`: `fs/promises` `mkdir(dir, { recursive: true })` + `writeFile(path.join(dir, key), buffer)`; return `{ key, url: `${publicUrl.replace(/\/$/, '')}/${key}` }`.
+5. **`s3.ts`**: `createS3Driver({ bucket, region, accessKeyId, secretAccessKey, publicUrlBase }): StorageDriver`. Construct `S3Client` once in closure; `upload()` sends `PutObjectCommand({ Bucket, Key, Body, ContentType })`; return `publicUrlBase ? `${publicUrlBase}/${key}` : `https://${bucket}.s3.${region}.amazonaws.com/${key}``.
+6. **`gcs.ts`**: `createGcsDriver({ bucket, projectId, clientEmail, privateKey, publicUrlBase }): StorageDriver`. Construct `Storage` once; `upload()` calls `bucket.file(key).save(buffer, { contentType: mimeType })`; return `publicUrlBase ? ... : `https://storage.googleapis.com/${bucket}/${key}``. Unescape `\n` in `privateKey` in `index.ts` before passing in (not inside this file).
+7. **`index.ts`**: export a pure `resolveStorageDriver(env = process.env): StorageDriver` that reads `STORAGE_DRIVER` (default `'local'`), validates the selected driver's required vars (collect *all* missing names into one thrown `Error`, not fail-fast on the first), and returns the constructed driver; `switch` unknown values → throw. Export the module-load-time singleton `export const storageDriver = resolveStorageDriver()` — fails at import time exactly like `jwt.ts`/`auth.ts` do for missing secrets. The separated pure function is what makes `index.test.ts` able to test selection logic against fabricated env objects without `vi.resetModules()` gymnastics for every case.
+
+## Group C — Schema (`api/schema.ts`)
+
+8. **`Media` list** — fields per spec Section 4 (`filename`, `mimeType`, `size: integer` [new import needed from `@keystone-6/core/fields`], `driver: select` with options `local`/`s3`/`gcs`, `storageKey`, `url`, `width?`, `height?`, `uploadedBy: relationship({ ref: 'User.media', many: false })`, `createdAt`, `deletedAt?`). `access` block copied verbatim from spec Section 4 (public `query`, session-required `create`/`update`/`delete`, `filter.query` excludes soft-deleted, `filter.update`/`delete` scoped to owner-or-admin).
+   - `hooks.resolveInput.create`: `({ resolvedData, context }) => ({ ...resolvedData, uploadedBy: { connect: { id: context.session?.itemId } } })` — object form scoped to `create` only (leave `update` untouched, no requirement to re-derive `uploadedBy` there). This is the first hook in this codebase; it unconditionally overwrites any client-supplied `uploadedBy`, satisfying "never from client input." A schema-level test calls this hook function directly (no full GraphQL round-trip needed).
+9. **`User.fields`**: add `media: relationship({ ref: 'Media.uploadedBy', many: true })` alongside `posts`.
+
+## Group D — REST route (`api/routes/media.ts`)
+
+10. **`createMediaRouter(commonContext: Context)`** — mirrors `auth.ts`'s `Router()` structure, but do **not** apply `router.use(json())` (multer parses the multipart body itself; DELETE has no body).
+    - Module-scope `multer` instance: `memoryStorage()`, `limits: { fileSize: 10 * 1024 * 1024 }`, `fileFilter` calling `cb(new Error('UNSUPPORTED_MIME'))` for disallowed mime types (rather than silent `cb(null,false)`) so the route can distinguish "unsupported type" (400, specific message) from "no file field at all" (400, different message) from a `MulterError` with `code === 'LIMIT_FILE_SIZE'` (400, "File too large") — all three need distinct error bodies per spec Section 8.
+    - **`POST /upload`**: 1) `withRequest(req,res)` → `session`; 401 if none, checked *before* invoking multer so unauthenticated garbage never gets buffered. 2) Run `upload.single('file')`, mapping its three failure modes as above. 3) Generate `key = `${randomUUID()}-${sanitizeFilename(originalname)}`` (small local helper, no existing util to reuse). 4) `storageDriver.upload(...)` in a try/catch → 500 `"Upload failed"` on rejection, **before** touching the DB (spec: no `Media` record on failed upload). 5) Create via the session-bound `requestContext.db.Media.createOne` (not `sudo()`) — specifically so the `resolveInput` hook's `context.session` is populated and force-sets `uploadedBy`; omit `uploadedBy` from the `data` payload entirely. 6) Return `201` with the Section-4 response shape.
+    - **`DELETE /:id`**: 1) Same auth check, 401 if none. 2) Fetch via `commonContext.sudo().db.Media.findOne({ where: { id } })` — 404 if missing or already soft-deleted. 3) **Explicit ownership/admin check in the handler** — `isOwner = existing.uploadedBy?.id === session.itemId`; if not owner, look up the real user via `commonContext.sudo().db.User.findOne({ where: { id: session.itemId } })` and check `isAdmin` directly (do **not** trust `session.data.isAdmin`, which is always `null`/falsy for JWT sessions per the gap in `api/auth.ts`). Neither → 404 (same message as not-found, no enumeration leak). 4) Otherwise soft-delete via `commonContext.sudo().db.Media.updateOne({ where: { id }, data: { deletedAt: new Date() } })` → `200 { success: true }`.
+    - **Why explicit checks + `sudo()` instead of relying on Keystone's own `access.filter.delete`**: relying on db-level enforcement here would inherit the JWT/`session.data.isAdmin` gap (admin deletes over JWT would wrongly 404) and would surface denial as a thrown error rather than a controlled boolean, making the "always exactly 404, never 500" contract hard to guarantee with this repo's hand-rolled mock-context test style. Doing it explicitly keeps authorization logic in plain, directly-testable TypeScript.
+
+## Group E — Wiring (`api/keystone.ts`)
+
+11. Import `createMediaRouter`, `path` (`node:path`), `express`. After the existing `/api/auth` mount, add `app.use('/api/media', createMediaRouter(commonContext))`. Add, conditioned on the raw env var (not on constructing `lib/storage`, so a static-serving decision doesn't force driver validation): `if ((process.env.STORAGE_DRIVER || 'local') === 'local') app.use('/uploads', express.static(path.resolve(process.env.STORAGE_LOCAL_DIR || './uploads')))`.
+12. Run `keystone dev` once locally after the schema change to generate/apply the Prisma migration for `Media` (manual step, not part of the automated test run).
+
+## Group F — Tests
+
+13. **`api/lib/storage/local.test.ts`**: mock `fs/promises` (`mkdir`/`writeFile` as resolved `vi.fn()`s); assert call args and returned URL, including a trailing-slash `publicUrl` case (no double slash).
+14. **`api/lib/storage/s3.test.ts`**: `vi.mock('@aws-sdk/client-s3')` (mock `S3Client` + `.send`, `PutObjectCommand`); assert command args and both URL branches (`publicUrlBase` set/unset).
+15. **`api/lib/storage/gcs.test.ts`**: `vi.mock('@google-cloud/storage')` (mock `Storage`/`bucket().file().save()`); same assertions as S3.
+16. **`api/lib/storage/index.test.ts`**: test `resolveStorageDriver(env)` directly with fabricated env objects for local/s3/gcs happy paths, default-to-local when unset, missing-required-var throws (message names the var), unrecognized driver throws; mock the three driver-constructor modules so no real fs/SDK is touched. Plus one or two `vi.resetModules()` + `vi.stubEnv` + dynamic `import('./index')` tests confirming the top-level singleton throws at import time when misconfigured.
+17. **`api/routes/media.test.ts`**: extend `api/test/mock-context.ts` with a `dbMedia = { createOne, findOne, updateOne }` (mirroring the existing `dbUser` shape) wired into both `sudoContext.db` and the `withRequest`-resolved context, plus a settable `session` on the resolved request context (default `undefined`, overridden per test). `vi.mock('../lib/storage', ...)` to stub `storageDriver`. Local `buildApp()` per the `auth.test.ts` pattern. Cases: 201 happy path (assert no client-controllable `uploadedBy` reaches `dbMedia.createOne`'s `data`); 400 unsupported mime / oversized file / no file; 401 on both routes with no session; 404 delete by non-owner/non-admin; 404 delete of nonexistent/already-deleted id; 200 delete by owner; 200 delete by admin **specifically with a JWT-shaped session (`session.data === null`)** to regression-test the explicit-lookup fix; 500 when the driver rejects, asserting `createOne` was never called.
+18. **`api/schema.test.ts`** (new file — no `Event`/schema-level test exists yet, so this is scoped to `Media` only): import `lists` from `../schema` and test `lists.Media.access.operation.*` and `access.filter.*` as plain functions (no Keystone runtime), plus the `resolveInput.create` hook called directly with a fake `{ resolvedData: { uploadedBy: 'spoofed' }, context: { session: { itemId: 'u1' } } }`, asserting the returned `uploadedBy` is always `{ connect: { id: 'u1' } }`.
+
+## Verification
+
+1. `cd api && npx tsc --noEmit` — catches typing issues from the new fields/hook/imports before running tests.
+2. `cd api && npx vitest run` — full suite passes, including unmodified `jwt.test.ts`/`auth-middleware.test.ts`/`auth.test.ts` (regression check).
+3. Manual smoke test: `npm run dev`, log in via `/api/auth/login`, `POST` a small `.jpg` to `/api/media/upload` with the bearer token, confirm `201` and that the returned `http://localhost:3002/uploads/<key>` URL actually serves the file; `DELETE` it and confirm a GraphQL query for that item no longer returns it.
+4. `git diff api/.env api/.env.example` — confirm only appended lines, nothing reordered or removed.
+
+### Critical files
+- `api/schema.ts`, `api/routes/media.ts`, `api/lib/storage/index.ts`, `api/keystone.ts`, `api/test/mock-context.ts`
