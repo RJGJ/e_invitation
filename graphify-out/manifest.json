@@ -80,9 +80,9 @@
     "semantic_hash": "757d1874a984d954ae4755e6cc653fd4"
   },
   "app/android/app/build.gradle.kts": {
-    "mtime": 1784432255.4016688,
-    "ast_hash": "beb0a574b69b9ab40dad886aa2eee2fd",
-    "semantic_hash": "beb0a574b69b9ab40dad886aa2eee2fd"
+    "mtime": 1784432266.4676933,
+    "ast_hash": "7fdbd806edea15def47a2fe0297692fe",
+    "semantic_hash": ""
   },
   "app/android/app/src/main/kotlin/com/example/e_invitation/MainActivity.kt": {
     "mtime": 1783874799.704596,
@@ -140,9 +140,9 @@
     "semantic_hash": "8dc05c1b3f83669a512217d8e682e1a7"
   },
   "app/lib/main.dart": {
-    "mtime": 1784432255.4016688,
-    "ast_hash": "0abcc728d0a7b1a1b5a6225f47f44e20",
-    "semantic_hash": "0abcc728d0a7b1a1b5a6225f47f44e20"
+    "mtime": 1784432266.473504,
+    "ast_hash": "f61e66dbd02433918a395c3b622284eb",
+    "semantic_hash": ""
   },
   "app/lib/models/auth_failure.dart": {
     "mtime": 1784381676.3596797,
@@ -195,14 +195,14 @@
     "semantic_hash": "5b2384814abdf0f27f2f9d58f801c982"
   },
   "app/lib/screens/home_screen.dart": {
-    "mtime": 1784381676.3605447,
-    "ast_hash": "ed80cf9fabc509bb9a933947dcab3cea",
-    "semantic_hash": "ed80cf9fabc509bb9a933947dcab3cea"
+    "mtime": 1784441861.8042872,
+    "ast_hash": "97581cb25c127047254b56ed4c823a2c",
+    "semantic_hash": ""
   },
   "app/lib/screens/login_screen.dart": {
-    "mtime": 1784381676.3606145,
-    "ast_hash": "97457d25aa47967050bba087e8f6d46b",
-    "semantic_hash": "97457d25aa47967050bba087e8f6d46b"
+    "mtime": 1784433488.9068305,
+    "ast_hash": "7eca924f7ab4fa8c7af0a565cb30e267",
+    "semantic_hash": ""
   },
   "app/lib/screens/splash_screen.dart": {
     "mtime": 1784381676.3607163,
@@ -305,9 +305,9 @@
     "semantic_hash": "e175e436acacf76c814d83532d0b662c"
   },
   "app/pubspec.yaml": {
-    "mtime": 1784432255.4016688,
-    "ast_hash": "dcfa9f8ebd367228c1497aa9b3f8aea8",
-    "semantic_hash": "dcfa9f8ebd367228c1497aa9b3f8aea8"
+    "mtime": 1784432266.4745789,
+    "ast_hash": "4b915e420259ae3e3fd87548ac1bce25",
+    "semantic_hash": ""
   },
   "app/web/index.html": {
     "mtime": 1783874799.756619,
@@ -464,9 +464,59 @@
     "ast_hash": "6c65f7a8adbc5545685b02d2afc40212",
     "semantic_hash": ""
   },
-  "app/patrol_test/test_bundle.dart": {
-    "mtime": 1784431350.354988,
-    "ast_hash": "ff8df681365debc1a8e976e19da14471",
+  "app/android/app/src/androidTest/kotlin/com/example/e_invitation/MainActivityTest.kt": {
+    "mtime": 1784432266.46817,
+    "ast_hash": "eac48c41de6b136fb934f9a4c4667483",
+    "semantic_hash": ""
+  },
+  "app/integration_test/theme_smoke_test.dart": {
+    "mtime": 1784432266.473504,
+    "ast_hash": "bacb556a300dd2e0c79802d72009d03d",
+    "semantic_hash": ""
+  },
+  "app/lib/theme/app_colors.dart": {
+    "mtime": 1784432266.473504,
+    "ast_hash": "7cdc93294f8220cba9b4ef51442841ad",
+    "semantic_hash": ""
+  },
+  "app/lib/theme/app_radius.dart": {
+    "mtime": 1784432266.473989,
+    "ast_hash": "1226fd4730f06119aacf1ba9bfb84a4b",
+    "semantic_hash": ""
+  },
+  "app/lib/theme/app_spacing.dart": {
+    "mtime": 1784432266.473989,
+    "ast_hash": "51cad895aaa0ee551234952a74968489",
+    "semantic_hash": ""
+  },
+  "app/lib/theme/app_theme.dart": {
+    "mtime": 1784432266.473989,
+    "ast_hash": "6c31b9a4274de150188f4eed15e1e0c0",
+    "semantic_hash": ""
+  },
+  "app/lib/theme/app_typography.dart": {
+    "mtime": 1784432266.473989,
+    "ast_hash": "f1eab8c84a5c6f3ad50c38e445f6300c",
+    "semantic_hash": ""
+  },
+  "app/lib/widgets/views/account_view.dart": {
+    "mtime": 1784440418.6930299,
+    "ast_hash": "6325d8eafb5ceb449ef95ed44d03d5ce",
+    "semantic_hash": ""
+  },
+  "app/lib/widgets/views/home_view.dart": {
+    "mtime": 1784440699.1554172,
+    "ast_hash": "ca1f71823ef187d49fad71216dcec854",
+    "semantic_hash": ""
+  },
+  "app/lib/widgets/views/templates_view.dart": {
+    "mtime": 1784440429.2546008,
+    "ast_hash": "1522e48962a86b06a7fbf4b20433b8a3",
+    "semantic_hash": ""
+  },
+  "app/test/theme/app_theme_test.dart": {
+    "mtime": 1784432266.474706,
+    "ast_hash": "35f8ca5803fea570f9fcf007c3463d68",
     "semantic_hash": ""
   }
 }

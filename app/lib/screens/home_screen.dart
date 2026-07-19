@@ -52,12 +52,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
-    final userName = authState.maybeWhen(
-      authenticated: (user) => user.name,
-      orElse: () => '',
-    );
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Home'),
