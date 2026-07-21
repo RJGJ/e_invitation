@@ -26,7 +26,7 @@ before or alongside M1.
 
 | # | Milestone | Spec written | Spec reviewed | Plan written | Plan reviewed | Implemented |
 |---|---|---|---|---|---|---|
-| M1 | Event creation flow | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| M1 | Event creation flow | ✅ | ⬜ | ✅ | ⬜ | ⬜ |
 | M2 | Reveal experiences | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
 | M3 | RSVP flow | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
 | M4 | Event details page | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
