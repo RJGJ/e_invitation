@@ -317,6 +317,9 @@ export const lists = {
       coverImage: relationship({ ref: 'Media.coverOfEvent', many: false }),
       gallery: relationship({ ref: 'Media.galleryOfEvents', many: true }),
 
+      // Connects an existing Template id — see the Template list below.
+      template: relationship({ ref: 'Template.templateOfEvents', many: false }),
+
       allowPlusOne: checkbox({ defaultValue: false }),
       rsvpDeadline: timestamp(),
       requireApproval: checkbox({ defaultValue: false }),
@@ -340,6 +343,51 @@ export const lists = {
         },
       }),
       deletedAt: timestamp(),
+    },
+  }),
+
+  // A curated event-type template (motif/accent) a host picks when creating
+  // an Event. Not user-authored — only admins manage these.
+  Template: list({
+    access: {
+      operation: {
+        query: () => true,
+        create: ({ session }) => Boolean(session?.data?.isAdmin),
+        update: ({ session }) => Boolean(session?.data?.isAdmin),
+        delete: ({ session }) => Boolean(session?.data?.isAdmin),
+      },
+      filter: {
+        // Retired templates stay connectable by existing Events but are
+        // hidden from the "pick a template" query everywhere.
+        query: () => ({ isActive: { equals: true } }),
+      },
+    },
+
+    fields: {
+      name: text({ validation: { isRequired: true } }),
+
+      type: select({
+        options: [
+          { label: 'Wedding', value: 'wedding' },
+          { label: 'Birthday', value: 'birthday' },
+          { label: 'Baptism', value: 'baptism' },
+        ],
+        validation: { isRequired: true },
+      }),
+
+      motif: text({ validation: { isRequired: true } }),
+      accentHex: text({ validation: { isRequired: true } }),
+      isActive: checkbox({ defaultValue: true }),
+
+      templateOfEvents: relationship({ ref: 'Event.template', many: true }),
+
+      createdAt: timestamp({
+        defaultValue: { kind: 'now' },
+        ui: {
+          createView: { fieldMode: 'hidden' },
+          itemView: { fieldMode: 'read' },
+        },
+      }),
     },
   }),
 } satisfies Lists
