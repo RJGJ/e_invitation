@@ -15,9 +15,9 @@
     "semantic_hash": "7450784a3efe183e33d3ee8c1ef9881b"
   },
   "api/keystone.ts": {
-    "mtime": 1784372799.1662521,
-    "ast_hash": "1e1df0a51d5cb482742d583672f5f4dd",
-    "semantic_hash": "1e1df0a51d5cb482742d583672f5f4dd"
+    "mtime": 1784468855.4494998,
+    "ast_hash": "23defbe7195f1fefbea65d4d736a6f1c",
+    "semantic_hash": ""
   },
   "api/lib/auth-middleware.test.ts": {
     "mtime": 1784372799.166636,
@@ -40,9 +40,9 @@
     "semantic_hash": "3abdc0b56b76c430a56cf17a49d3f376"
   },
   "api/package.json": {
-    "mtime": 1784372799.1679313,
-    "ast_hash": "72f4902a586a0c828bdccdcec87b0cc8",
-    "semantic_hash": "72f4902a586a0c828bdccdcec87b0cc8"
+    "mtime": 1784468855.4534466,
+    "ast_hash": "1af5ab6876415fef9c0848eb58744371",
+    "semantic_hash": ""
   },
   "api/routes/auth.test.ts": {
     "mtime": 1784372799.1679313,
@@ -55,14 +55,14 @@
     "semantic_hash": "70940d3365e3c006f126cfc331f5ed3b"
   },
   "api/schema.ts": {
-    "mtime": 1784372799.1683445,
-    "ast_hash": "6ec613a83573bc3441c68fbca7d8bab5",
-    "semantic_hash": "6ec613a83573bc3441c68fbca7d8bab5"
+    "mtime": 1784470365.0899894,
+    "ast_hash": "3a5055ef48829844a8ae1091e81bc58e",
+    "semantic_hash": ""
   },
   "api/test/mock-context.ts": {
-    "mtime": 1784372799.1683445,
+    "mtime": 1784467996.9123175,
     "ast_hash": "b6be58d2ae5329615c38d0f4a5e2f8ec",
-    "semantic_hash": "b6be58d2ae5329615c38d0f4a5e2f8ec"
+    "semantic_hash": ""
   },
   "api/tsconfig.json": {
     "mtime": 1784359981.0291016,
@@ -75,9 +75,9 @@
     "semantic_hash": "4dc1d1a7c824b9f36c931a1e61ea9d89"
   },
   "api/vitest.setup.ts": {
-    "mtime": 1784372799.1683445,
-    "ast_hash": "757d1874a984d954ae4755e6cc653fd4",
-    "semantic_hash": "757d1874a984d954ae4755e6cc653fd4"
+    "mtime": 1784468855.4552932,
+    "ast_hash": "8095d2a7a367dfd8774c29bca9a2c6df",
+    "semantic_hash": ""
   },
   "app/android/app/build.gradle.kts": {
     "mtime": 1784432266.4676933,
@@ -195,8 +195,8 @@
     "semantic_hash": "5b2384814abdf0f27f2f9d58f801c982"
   },
   "app/lib/screens/home_screen.dart": {
-    "mtime": 1784441861.8042872,
-    "ast_hash": "97581cb25c127047254b56ed4c823a2c",
+    "mtime": 1784446864.0591536,
+    "ast_hash": "4d57dd3da4a2b47df0059aa5e8234ae5",
     "semantic_hash": ""
   },
   "app/lib/screens/login_screen.dart": {
@@ -275,8 +275,8 @@
     "semantic_hash": "c2cd72aa26004b86bdbf2281ce91ab5e"
   },
   "CLAUDE.md": {
-    "mtime": 1784432249.8856316,
-    "ast_hash": "a22cfbf9f742bf9a1e1a3b370408658a",
+    "mtime": 1784468842.7301052,
+    "ast_hash": "addd6beef96e19d1075b991d981a73c6",
     "semantic_hash": ""
   },
   "README.md": {
@@ -505,8 +505,8 @@
     "semantic_hash": ""
   },
   "app/lib/widgets/views/home_view.dart": {
-    "mtime": 1784440699.1554172,
-    "ast_hash": "ca1f71823ef187d49fad71216dcec854",
+    "mtime": 1784442545.9697764,
+    "ast_hash": "9bfdcf7f67973d28ac3c71b288c92a3f",
     "semantic_hash": ""
   },
   "app/lib/widgets/views/templates_view.dart": {
@@ -517,6 +517,41 @@
   "app/test/theme/app_theme_test.dart": {
     "mtime": 1784432266.474706,
     "ast_hash": "35f8ca5803fea570f9fcf007c3463d68",
+    "semantic_hash": ""
+  },
+  ".docs/plans/media-storage-plan.md": {
+    "mtime": 1784468855.4487178,
+    "ast_hash": "804c2906789b2fbd49756f5e584595aa",
+    "semantic_hash": ""
+  },
+  ".docs/specs/api/event-model.md": {
+    "mtime": 1784468995.9125793,
+    "ast_hash": "161788469749495226bffabd53f7812e",
+    "semantic_hash": ""
+  },
+  ".docs/specs/api/media-storage.md": {
+    "mtime": 1784468855.4492843,
+    "ast_hash": "d023d48fc57bee57d4e87ce4a5cd9f0d",
+    "semantic_hash": ""
+  },
+  "api/lib/media-storage.test.ts": {
+    "mtime": 1784468855.4494998,
+    "ast_hash": "e55ac39c284887e2b9509154178ff9c9",
+    "semantic_hash": ""
+  },
+  "api/lib/media-storage.ts": {
+    "mtime": 1784468855.4494998,
+    "ast_hash": "058e75bcb06daa5ef5890c64dbe6978f",
+    "semantic_hash": ""
+  },
+  "api/schema.test.ts": {
+    "mtime": 1784470365.0898175,
+    "ast_hash": "203fc0b3cbff7265e5537914efa16fc5",
+    "semantic_hash": ""
+  },
+  ".docs/plans/event-model-plan.md": {
+    "mtime": 1784469647.6637182,
+    "ast_hash": "7d6092595a13f40ee9ec5b61d3163edf",
     "semantic_hash": ""
   }
 }
