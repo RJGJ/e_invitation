@@ -75,6 +75,8 @@ model Event {
   coverImage      Media?    @relation("Event_coverImage", fields: [coverImageId], references: [id])
   coverImageId    String?   @unique @map("coverImage") @postgresql.Uuid
   gallery         Media[]   @relation("Event_gallery")
+  template        Template? @relation("Event_template", fields: [templateId], references: [id])
+  templateId      String?   @map("template") @postgresql.Uuid
   allowPlusOne    Boolean   @default(false)
   rsvpDeadline    DateTime?
   requireApproval Boolean   @default(false)
@@ -86,4 +88,16 @@ model Event {
   deletedAt       DateTime?
 
   @@index([authorId])
+  @@index([templateId])
+}
+
+model Template {
+  id               String    @id @default(uuid()) @postgresql.Uuid
+  name             String    @default("")
+  type             String
+  motif            String    @default("")
+  accentHex        String    @default("")
+  isActive         Boolean   @default(true)
+  templateOfEvents Event[]   @relation("Event_template")
+  createdAt        DateTime? @default(now())
 }

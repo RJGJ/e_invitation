@@ -443,6 +443,7 @@ type Event {
   coverImage: Media
   gallery(where: MediaWhereInput! = {}, orderBy: [MediaOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: MediaWhereUniqueInput): [Media!]
   galleryCount(where: MediaWhereInput! = {}): Int
+  template: Template
   allowPlusOne: Boolean
   rsvpDeadline: DateTime
   requireApproval: Boolean
@@ -477,6 +478,7 @@ input EventWhereInput {
   longitude: FloatNullableFilter
   coverImage: MediaWhereInput
   gallery: MediaManyRelationFilter
+  template: TemplateWhereInput
   allowPlusOne: BooleanFilter
   rsvpDeadline: DateTimeNullableFilter
   requireApproval: BooleanFilter
@@ -547,6 +549,7 @@ input EventUpdateInput {
   longitude: Float
   coverImage: MediaRelateToOneForUpdateInput
   gallery: MediaRelateToManyForUpdateInput
+  template: TemplateRelateToOneForUpdateInput
   allowPlusOne: Boolean
   rsvpDeadline: DateTime
   requireApproval: Boolean
@@ -561,6 +564,12 @@ input EventUpdateInput {
 input MediaRelateToOneForUpdateInput {
   create: MediaCreateInput
   connect: MediaWhereUniqueInput
+  disconnect: Boolean
+}
+
+input TemplateRelateToOneForUpdateInput {
+  create: TemplateCreateInput
+  connect: TemplateWhereUniqueInput
   disconnect: Boolean
 }
 
@@ -583,6 +592,7 @@ input EventCreateInput {
   longitude: Float
   coverImage: MediaRelateToOneForCreateInput
   gallery: MediaRelateToManyForCreateInput
+  template: TemplateRelateToOneForCreateInput
   allowPlusOne: Boolean
   rsvpDeadline: DateTime
   requireApproval: Boolean
@@ -597,6 +607,76 @@ input EventCreateInput {
 input MediaRelateToOneForCreateInput {
   create: MediaCreateInput
   connect: MediaWhereUniqueInput
+}
+
+input TemplateRelateToOneForCreateInput {
+  create: TemplateCreateInput
+  connect: TemplateWhereUniqueInput
+}
+
+type Template {
+  id: ID!
+  name: String
+  type: String
+  motif: String
+  accentHex: String
+  isActive: Boolean
+  templateOfEvents(where: EventWhereInput! = {}, orderBy: [EventOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: EventWhereUniqueInput): [Event!]
+  templateOfEventsCount(where: EventWhereInput! = {}): Int
+  createdAt: DateTime
+}
+
+input TemplateWhereUniqueInput {
+  id: ID
+}
+
+input TemplateWhereInput {
+  AND: [TemplateWhereInput!]
+  OR: [TemplateWhereInput!]
+  NOT: [TemplateWhereInput!]
+  id: IDFilter
+  name: StringFilter
+  type: StringFilter
+  motif: StringFilter
+  accentHex: StringFilter
+  isActive: BooleanFilter
+  templateOfEvents: EventManyRelationFilter
+  createdAt: DateTimeNullableFilter
+}
+
+input TemplateOrderByInput {
+  id: OrderDirection
+  name: OrderDirection
+  type: OrderDirection
+  motif: OrderDirection
+  accentHex: OrderDirection
+  isActive: OrderDirection
+  createdAt: OrderDirection
+}
+
+input TemplateUpdateInput {
+  name: String
+  type: String
+  motif: String
+  accentHex: String
+  isActive: Boolean
+  templateOfEvents: EventRelateToManyForUpdateInput
+  createdAt: DateTime
+}
+
+input TemplateUpdateArgs {
+  where: TemplateWhereUniqueInput!
+  data: TemplateUpdateInput!
+}
+
+input TemplateCreateInput {
+  name: String
+  type: String
+  motif: String
+  accentHex: String
+  isActive: Boolean
+  templateOfEvents: EventRelateToManyForCreateInput
+  createdAt: DateTime
 }
 
 """
@@ -635,6 +715,12 @@ type Mutation {
   updateEvents(data: [EventUpdateArgs!]!): [Event]
   deleteEvent(where: EventWhereUniqueInput!): Event
   deleteEvents(where: [EventWhereUniqueInput!]!): [Event]
+  createTemplate(data: TemplateCreateInput!): Template
+  createTemplates(data: [TemplateCreateInput!]!): [Template]
+  updateTemplate(where: TemplateWhereUniqueInput!, data: TemplateUpdateInput!): Template
+  updateTemplates(data: [TemplateUpdateArgs!]!): [Template]
+  deleteTemplate(where: TemplateWhereUniqueInput!): Template
+  deleteTemplates(where: [TemplateWhereUniqueInput!]!): [Template]
   endSession: Boolean!
   authenticateUserWithPassword(email: String!, password: String!): UserAuthenticationWithPasswordResult
   createInitialUser(data: CreateInitialUserInput!): UserAuthenticationWithPasswordSuccess!
@@ -673,6 +759,9 @@ type Query {
   event(where: EventWhereUniqueInput!): Event
   events(where: EventWhereInput! = {}, orderBy: [EventOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: EventWhereUniqueInput): [Event!]
   eventsCount(where: EventWhereInput! = {}): Int
+  template(where: TemplateWhereUniqueInput!): Template
+  templates(where: TemplateWhereInput! = {}, orderBy: [TemplateOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: TemplateWhereUniqueInput): [Template!]
+  templatesCount(where: TemplateWhereInput! = {}): Int
   keystone: KeystoneMeta!
   authenticatedItem: AuthenticatedItem
 }
