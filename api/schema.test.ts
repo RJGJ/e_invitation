@@ -171,3 +171,52 @@ describe('Event hooks.resolveInput', () => {
     expect(result.title).toBe('Renamed')
   })
 })
+
+// Template.access is a plain, hand-written config object, exercised
+// directly — same style as mediaAccess/eventAccess above. Template has no
+// deletedAt soft-delete convention (unlike Media/Event) — it uses an
+// isActive filter instead, and writes are admin-only rather than
+// owner-scoped (templates are curated content, not user-generated).
+const templateAccess = lists.Template.access as {
+  operation: {
+    query: () => boolean
+    create: (args: { session: { data?: { isAdmin?: boolean } } | undefined }) => boolean
+    update: (args: { session: { data?: { isAdmin?: boolean } } | undefined }) => boolean
+    delete: (args: { session: { data?: { isAdmin?: boolean } } | undefined }) => boolean
+  }
+  filter: {
+    query: () => unknown
+  }
+}
+
+describe('Template.access.operation', () => {
+  it('allows query for anyone, session or not', () => {
+    expect(templateAccess.operation.query()).toBe(true)
+  })
+
+  it('denies create/update/delete without a session', () => {
+    expect(templateAccess.operation.create({ session: undefined })).toBe(false)
+    expect(templateAccess.operation.update({ session: undefined })).toBe(false)
+    expect(templateAccess.operation.delete({ session: undefined })).toBe(false)
+  })
+
+  it('denies create/update/delete for a non-admin session', () => {
+    const session = { data: { isAdmin: false } }
+    expect(templateAccess.operation.create({ session })).toBe(false)
+    expect(templateAccess.operation.update({ session })).toBe(false)
+    expect(templateAccess.operation.delete({ session })).toBe(false)
+  })
+
+  it('allows create/update/delete for an admin session', () => {
+    const session = { data: { isAdmin: true } }
+    expect(templateAccess.operation.create({ session })).toBe(true)
+    expect(templateAccess.operation.update({ session })).toBe(true)
+    expect(templateAccess.operation.delete({ session })).toBe(true)
+  })
+})
+
+describe('Template.access.filter', () => {
+  it('query filter excludes inactive templates', () => {
+    expect(templateAccess.filter.query()).toEqual({ isActive: { equals: true } })
+  })
+})
