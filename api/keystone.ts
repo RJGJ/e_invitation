@@ -6,6 +6,7 @@
 //   you can find out more at https://keystonejs.com/docs/apis/config
 
 import { config } from '@keystone-6/core'
+import cors from 'cors'
 
 // to keep this file tidy, we define our schema in a different file
 import { lists } from './schema'
@@ -26,6 +27,19 @@ export default withAuth(
     server: {
       port: Number.parseInt(process.env.APP_PORT || '3000'),
       extendExpressApp: (app, commonContext) => {
+        // Allow the Nuxt web client and Capacitor's native webviews to call
+        // this API cross-origin. The Flutter app never went through a
+        // browser, so this was never needed until now.
+        app.use(
+          cors({
+            origin: [
+              process.env.CORS_ORIGIN_DEV || 'http://localhost:3000',
+              'capacitor://localhost',
+              'http://localhost',
+            ],
+          }),
+        )
+
         // Verify JWTs on incoming requests and attach the decoded payload
         // to req.jwtPayload for the session strategy to consume.
         app.use(jwtAuthMiddleware)
