@@ -17,10 +17,16 @@ Legend: ✅ done · ⬜ not yet
 | Media/Event Flutter models + GraphQL client | ✅ | ✅ | — | — | ⬜ *(specced, not yet built — see note below)* |
 
 **Note:** `.docs/specs/app/media-event-models.md` is written but its files
-(`app/lib/models/event.dart`, `media.dart`, `app/lib/services/graphql_client.dart`,
-`app/lib/providers/event_provider.dart`) do not exist in `app/lib/` yet, verified
+(`flutter/lib/models/event.dart`, `media.dart`, `flutter/lib/services/graphql_client.dart`,
+`flutter/lib/providers/event_provider.dart`) do not exist in `flutter/lib/` yet, verified
 2026-07-21. Every app-side milestone below (M1-M11) depends on it — implement it
 before or alongside M1.
+
+**2026-07-24:** Client development moved to Nuxt 3 + Pinia + TypeScript
+(`.docs/specs/app/nuxt-migration.md`, `.docs/plans/nuxt-migration-plan.md`).
+The Flutter project was renamed `app/` → `flutter/` and kept as dormant
+reference; `app/` now refers to the Nuxt client. M1's Flutter branches above
+predate this move and are not affected, but future milestones build on Nuxt.
 
 ## Milestones (`masterplan/README.md` has the full dependency graph)
 
