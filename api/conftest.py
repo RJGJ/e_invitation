@@ -1,6 +1,7 @@
 import io
 
 import pytest
+from django.contrib.auth.models import Group
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from PIL import Image
@@ -17,8 +18,8 @@ def graphql_client():
 
 @pytest.fixture
 def make_user(db):
-    def _make_user(email="user@example.com", name="User", is_admin=False):
-        return User.objects.create_user(email=email, name=name, password="pw12345", is_admin=is_admin)
+    def _make_user(email="user@example.com", name="User"):
+        return User.objects.create_user(email=email, name=name, password="pw12345")
 
     return _make_user
 
@@ -35,7 +36,10 @@ def other_user(make_user):
 
 @pytest.fixture
 def admin_user(make_user):
-    return make_user(email="admin@example.com", name="Admin", is_admin=True)
+    user = make_user(email="admin@example.com", name="Admin")
+    group, _ = Group.objects.get_or_create(name="admin")
+    user.groups.add(group)
+    return user
 
 
 def auth_headers(user):
