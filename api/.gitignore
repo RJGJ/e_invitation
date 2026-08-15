@@ -1,6 +1,6 @@
-node_modules
-.keystone/
-keystone.db
-*.log
+.venv/
+__pycache__/
+*.pyc
 .env
-uploads/
+media/
+staticfiles/
