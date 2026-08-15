@@ -8,6 +8,6 @@ def require_auth(info):
 def require_owner_or_admin(info, obj, owner_field):
     user = require_auth(info)
     owner_id = getattr(obj, f"{owner_field}_id")
-    if owner_id != user.id and not user.is_admin:
+    if owner_id != user.id and not user.groups.filter(name="admin").exists():
         raise Exception("Permission denied")
     return user
