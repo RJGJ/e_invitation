@@ -2,6 +2,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework_simplejwt.views import (
     TokenBlacklistView,
     TokenObtainPairView,
@@ -15,10 +16,12 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path(
         "graphql/",
-        GraphQLView.as_view(
-            schema=schema,
-            graphql_ide="graphiql" if settings.DEBUG else None,
-            multipart_uploads_enabled=True,
+        csrf_exempt(
+            GraphQLView.as_view(
+                schema=schema,
+                graphql_ide="graphiql" if settings.DEBUG else None,
+                multipart_uploads_enabled=True,
+            )
         ),
     ),
     path("api/token/", TokenObtainPairView.as_view()),
