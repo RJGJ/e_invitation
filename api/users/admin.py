@@ -7,8 +7,8 @@ from .models import User
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
     ordering = ["email"]
-    list_display = ["email", "name", "is_admin", "is_staff", "is_active"]
-    list_filter = ["is_admin", "is_staff", "is_active"]
+    list_display = ["email", "name", "is_staff", "is_active"]
+    list_filter = ["is_staff", "is_active"]
     search_fields = ["email", "name"]
     fieldsets = (
         (None, {"fields": ("email", "password")}),
@@ -17,7 +17,6 @@ class UserAdmin(DjangoUserAdmin):
             "Permissions",
             {
                 "fields": (
-                    "is_admin",
                     "is_active",
                     "is_staff",
                     "is_superuser",
