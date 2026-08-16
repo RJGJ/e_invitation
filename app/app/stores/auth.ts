@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { authApi } from '../services/authApi'
+import { meApi } from '../services/meApi'
 import { tokenStorage } from '../services/tokenStorage'
 import type { AuthState } from '../types/auth'
 import { isTokenExpired } from '../utils/jwt'
@@ -11,9 +12,13 @@ export const useAuthStore = defineStore('auth', {
 
   actions: {
     async login(email: string, password: string) {
-      const result = await authApi.login(email, password)
-      await tokenStorage.writeSession(result)
-      this.authState = { status: 'authenticated', user: result.user }
+      const tokens = await authApi.login(email, password)
+      // Nothing is persisted until the profile fetch succeeds — if it
+      // throws, this rethrows and the store stays untouched, same as a
+      // login failure.
+      const user = await meApi.fetchMe(tokens.access)
+      await tokenStorage.writeSession({ accessToken: tokens.access, refreshToken: tokens.refresh, user })
+      this.authState = { status: 'authenticated', user }
     },
 
     async logout() {
