@@ -5,7 +5,7 @@ export default defineNuxtConfig({
   ssr: false,
   modules: ["@pinia/nuxt", "@nuxtjs/tailwindcss"],
   css: ["~/assets/css/main.css"],
-  components: [{ path: "~/components/ui", pathPrefix: false }],
+  components: [{ path: "~/components", pathPrefix: false, extensions: ["vue"] }],
   runtimeConfig: {
     public: {
       apiBaseUrl: "",

@@ -1,97 +1,264 @@
-import type { Config } from 'tailwindcss'
+import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
-// LuxeInvite design system tokens, ported verbatim from
-// .docs/specs/app/theme.md (originally app/lib/theme/*.dart in the Flutter
-// client, now flutter/lib/theme/*.dart). Do not reinterpret values here —
-// this file is a 1:1 translation of that spec's Section 4.
-export default {
-  content: [],
+/**
+ * Emerald & Co. — Tailwind theme
+ * Port of DESIGN_SYSTEM.md v1 (multi-event e-invitation platform).
+ *
+ * Rules carried over from the spec:
+ *  - Emerald is always the primary action color; event accents never replace it.
+ *  - Event types are data-driven: adding a type = one entry in `eventAccents`
+ *    below + the matching `data-event` variant. No component forking.
+ *  - Light mode only in v1. Do not add dark tokens yet.
+ */
+
+/** Adding an event type? Add it here and nowhere else. */
+const eventAccents = {
+  wedding: {
+    accent: "#C9A24B",
+    accentDark: "#8A6A1E",
+    support1: "#E8C4C0", // blush
+    support2: "#F7F0E4", // cream
+  },
+  baptism: {
+    accent: "#7FA0B0",
+    accentDark: "#5F8194",
+    support1: "#F9D68C", // candlelight
+    support2: "#E7EFF2", // mist
+  },
+  birthday: {
+    accent: "#F2996F",
+    accentDark: "#E07A52",
+    support1: "#F4C95D", // sunny
+    support2: "#7BC4A4", // mint
+  },
+} as const;
+
+type EventType = keyof typeof eventAccents;
+const eventTypes = Object.keys(eventAccents) as EventType[];
+
+const config: Config = {
+  content: ["./src/**/*.{ts,tsx,js,jsx,mdx,html}", "./app/**/*.{ts,tsx,mdx}"],
+  darkMode: ["class"], // reserved; v1 ships no dark tokens
   theme: {
     extend: {
       colors: {
-        luxe: {
-          surface: '#FAF9F7',
-          'surface-dim': '#DADAD8',
-          'surface-bright': '#FAF9F7',
-          'surface-container-lowest': '#FFFFFF',
-          'surface-container-low': '#F4F3F1',
-          'surface-container': '#EFEEEC',
-          'surface-container-high': '#E9E8E6',
-          'surface-container-highest': '#E3E2E0',
-          'on-surface': '#1A1C1B',
-          'on-surface-variant': '#3F4942',
-          'inverse-surface': '#2F3130',
-          'on-inverse-surface': '#F1F1EF',
-          outline: '#6F7A72',
-          'outline-variant': '#BEC9C0',
-          'surface-tint': '#156B49',
-          primary: '#00492E',
-          'on-primary': '#FFFFFF',
-          'primary-container': '#046341',
-          'on-primary-container': '#8DDCB1',
-          'inverse-primary': '#87D7AC',
-          secondary: '#735C00',
-          'on-secondary': '#FFFFFF',
-          'secondary-container': '#FED65B',
-          'on-secondary-container': '#745C00',
-          tertiary: '#414121',
-          'on-tertiary': '#FFFFFF',
-          'tertiary-container': '#585836',
-          'on-tertiary-container': '#CFCEA4',
-          error: '#BA1A1A',
-          'on-error': '#FFFFFF',
-          'error-container': '#FFDAD6',
-          'on-error-container': '#93000A',
-          'primary-fixed': '#A3F4C7',
-          'primary-fixed-dim': '#87D7AC',
-          'on-primary-fixed': '#002113',
-          'on-primary-fixed-variant': '#005235',
-          'secondary-fixed': '#FFE088',
-          'secondary-fixed-dim': '#E9C349',
-          'on-secondary-fixed': '#241A00',
-          'on-secondary-fixed-variant': '#574500',
-          'tertiary-fixed': '#E6E5B9',
-          'tertiary-fixed-dim': '#CAC99F',
-          'on-tertiary-fixed': '#1D1D03',
-          'on-tertiary-fixed-variant': '#484828',
+        /* §1.1 Brand & neutrals */
+        emerald: {
+          DEFAULT: "#0E5240",
+          light: "#146A51",
+          dark: "#0A3A2C",
+        },
+        ink: "#12211B",
+        slate: "#5C665F",
+        muted: "#8A938C",
+        hint: "#A89A80",
+        cream: "#F7F0E4",
+        bg: {
+          warm: "#FBFAF6",
+          cool: "#F4F6F3",
+        },
+        surface: "#FFFFFF",
+        line: {
+          DEFAULT: "rgb(14 82 64 / 0.10)",
+          strong: "rgb(14 82 64 / 0.20)",
+        },
+
+        /* §1.2 Event accents — prefer the `accent` alias + data-event variants */
+        wedding: eventAccents.wedding,
+        baptism: eventAccents.baptism,
+        birthday: eventAccents.birthday,
+
+        /**
+         * Runtime accent. Set `--accent` / `--accent-dark` on the event root
+         * (see the `eventAccentVars` plugin) and use `text-accent`,
+         * `bg-accent/12`, `border-accent`, etc. anywhere below it.
+         */
+        accent: {
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          dark: "rgb(var(--accent-dark) / <alpha-value>)",
+          s1: "rgb(var(--accent-s1) / <alpha-value>)",
+          s2: "rgb(var(--accent-s2) / <alpha-value>)",
+        },
+
+        /* §1.3 Semantic / status */
+        status: {
+          going: "#0E5240",
+          "going-fill": "rgb(14 82 64 / 0.10)",
+          pending: "#C07A4A",
+          "pending-fill": "rgb(192 122 74 / 0.12)",
+          declined: "#A5573F",
+          "declined-fill": "rgb(165 87 63 / 0.10)",
+          draft: "#8A938C",
+          "draft-fill": "rgb(14 50 40 / 0.06)",
+        },
+        premium: {
+          DEFAULT: "#8A6A1E",
+          fill: "rgb(201 162 75 / 0.16)",
+          on: "#2A2110", // text on the gold gradient
         },
       },
+
+      backgroundImage: {
+        "gradient-gold": "linear-gradient(180deg, #C9A24B 0%, #B8912F 100%)",
+        "gradient-emerald": "linear-gradient(180deg, #146A51 0%, #0A3A2C 100%)",
+        "scrim-cover":
+          "linear-gradient(180deg, rgb(14 82 64 / 0) 40%, rgb(10 58 44 / 0.78) 100%)",
+        "veil-lock":
+          "linear-gradient(180deg, rgb(247 244 238 / 0.72) 0%, rgb(247 244 238 / 0.92) 100%)",
+      },
+
+      /* §2 Typography */
       fontFamily: {
-        serif: ['"Playfair Display"', 'serif'],
-        sans: ['Montserrat', 'sans-serif'],
+        display: ['"Cormorant Garamond"', "Georgia", "serif"],
+        sans: ['"Instrument Sans"', "system-ui", "sans-serif"],
+        mono: ['"IBM Plex Mono"', "ui-monospace", "monospace"],
       },
       fontSize: {
-        'display-lg': ['36px', { lineHeight: '44px', letterSpacing: '-0.36px', fontWeight: '700' }],
-        'display-md': ['40px', { lineHeight: '48px', fontWeight: '700' }],
-        'display-sm': ['34px', { lineHeight: '42px', fontWeight: '600' }],
-        'headline-lg': ['28px', { lineHeight: '36px', fontWeight: '600' }],
-        'headline-md': ['32px', { lineHeight: '40px', fontWeight: '600' }],
-        'headline-sm': ['24px', { lineHeight: '32px', fontWeight: '600' }],
-        'title-lg': ['20px', { lineHeight: '28px', fontWeight: '600' }],
-        'title-md': ['16px', { lineHeight: '24px', fontWeight: '600' }],
-        'title-sm': ['14px', { lineHeight: '20px', fontWeight: '600' }],
-        'body-lg': ['18px', { lineHeight: '28px', fontWeight: '400' }],
-        'body-md': ['16px', { lineHeight: '24px', fontWeight: '400' }],
-        'body-sm': ['12px', { lineHeight: '16px', fontWeight: '400' }],
-        'label-md': ['14px', { lineHeight: '20px', letterSpacing: '0.7px', fontWeight: '600' }],
-        'label-sm': ['12px', { lineHeight: '16px', letterSpacing: '0.36px', fontWeight: '500' }],
+        // [size, { lineHeight, letterSpacing, fontWeight }]
+        "display-xl": ["40px", { lineHeight: "1", fontWeight: "600" }],
+        "display-l": ["30px", { lineHeight: "1.1", fontWeight: "600" }],
+        "heading-m": ["24px", { lineHeight: "1.2", fontWeight: "600" }],
+        "heading-s": ["19px", { lineHeight: "1.2", fontWeight: "600" }],
+        body: ["15px", { lineHeight: "1.55", fontWeight: "400" }],
+        "body-strong": ["14px", { lineHeight: "1.4", fontWeight: "600" }],
+        label: ["13px", { lineHeight: "1.3", fontWeight: "600" }],
+        "label-sm": ["12px", { lineHeight: "1.3", fontWeight: "500" }],
+        caption: ["11px", { lineHeight: "1.6", fontWeight: "400" }],
+        overline: [
+          "11px",
+          { lineHeight: "1.3", letterSpacing: "0.16em", fontWeight: "600" },
+        ],
+      },
+
+      /* §3 Spacing, radius, elevation */
+      spacing: {
+        gutter: "22px",
+        "card-p": "15px",
+        section: "32px",
+        11: "44px", // min tap target
       },
       borderRadius: {
-        sm: '2px',
-        md: '4px',
-        lg: '6px',
-        xl: '8px',
-        xxl: '12px',
+        xs: "8px",
+        sm: "12px",
+        md: "15px",
+        lg: "18px",
+        pill: "30px",
+        "pill-sm": "20px",
       },
-      spacing: {
-        unit: '8px',
-        gutter: '24px',
-        'margin-mobile': '20px',
-        'margin-desktop': '64px',
+      boxShadow: {
+        card: "0 2px 8px rgb(14 50 40 / 0.05)",
+        raised: "0 3px 12px rgb(14 50 40 / 0.06)",
+        overlay: "0 34px 60px -22px rgb(14 50 40 / 0.4)",
       },
-      maxWidth: {
-        'container-luxe': '1200px',
+      minHeight: { tap: "44px" },
+      minWidth: { tap: "44px" },
+
+      /* §4 Motion */
+      transitionDuration: {
+        micro: "180ms",
+        enter: "400ms",
+        spring: "550ms",
+      },
+      transitionTimingFunction: {
+        micro: "cubic-bezier(0, 0, 0.2, 1)",
+        enter: "cubic-bezier(0.2, 0.85, 0.25, 1)",
+        spring: "cubic-bezier(0.2, 1.3, 0.4, 1)",
+        ambient: "cubic-bezier(0.4, 0, 0.6, 1)",
+      },
+      keyframes: {
+        rise: {
+          from: { opacity: "0", transform: "translateY(14px)" },
+          to: { opacity: "1", transform: "none" },
+        },
+        pop: {
+          "0%": { opacity: "0", transform: "scale(0.86)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        flicker: {
+          "0%, 100%": { opacity: "0.82", transform: "scaleY(1)" },
+          "50%": { opacity: "1", transform: "scaleY(1.06)" },
+        },
+        glow: {
+          "0%, 100%": { opacity: "0.45" },
+          "50%": { opacity: "0.9" },
+        },
+        bob: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-6px)" },
+        },
+      },
+      animation: {
+        rise: "rise 400ms cubic-bezier(0.2,0.85,0.25,1) both",
+        pop: "pop 550ms cubic-bezier(0.2,1.3,0.4,1) both",
+        flicker: "flicker 1.6s cubic-bezier(0.4,0,0.6,1) infinite",
+        glow: "glow 3s cubic-bezier(0.4,0,0.6,1) infinite",
+        bob: "bob 2.4s cubic-bezier(0.4,0,0.6,1) infinite",
       },
     },
   },
-} satisfies Config
+  plugins: [
+    /** Per-event accent variables + `event-<type>:` variants. */
+    plugin(({ addBase, addVariant }) => {
+      const rgb = (hex: string) =>
+        `${parseInt(hex.slice(1, 3), 16)} ${parseInt(hex.slice(3, 5), 16)} ${parseInt(hex.slice(5, 7), 16)}`;
+
+      const base: Record<string, Record<string, string>> = {
+        // wedding is the default so `accent` always resolves
+        ":root": {
+          "--accent": rgb(eventAccents.wedding.accent),
+          "--accent-dark": rgb(eventAccents.wedding.accentDark),
+          "--accent-s1": rgb(eventAccents.wedding.support1),
+          "--accent-s2": rgb(eventAccents.wedding.support2),
+        },
+      };
+      for (const type of eventTypes) {
+        const a = eventAccents[type];
+        base[`[data-event="${type}"]`] = {
+          "--accent": rgb(a.accent),
+          "--accent-dark": rgb(a.accentDark),
+          "--accent-s1": rgb(a.support1),
+          "--accent-s2": rgb(a.support2),
+        };
+        addVariant(`event-${type}`, `[data-event="${type}"] &`);
+      }
+      addBase(base);
+
+      /* §9 reduced motion: ambient loops off, reveals fall back to static */
+      addBase({
+        "@media (prefers-reduced-motion: reduce)": {
+          ".animate-flicker, .animate-glow, .animate-bob": {
+            animation: "none",
+          },
+        },
+      });
+
+      /* Plan gating (§10) — entitlement-driven, not component forks */
+      addVariant("locked", '[data-entitlement="locked"] &');
+      addVariant("plan-plus", '[data-plan="plus"] &, [data-plan="premium"] &');
+      addVariant("plan-premium", '[data-plan="premium"] &');
+    }),
+
+    /** Type-scale + section-overline shorthands (§2). */
+    plugin(({ addComponents, theme }) => {
+      const t = (k: string) => theme(`fontSize.${k}`) as [string, Record<string, string>];
+      const style = (k: string, family: string) => {
+        const [size, rest] = t(k);
+        return { fontFamily: theme(`fontFamily.${family}`), fontSize: size, ...rest };
+      };
+      addComponents({
+        ".type-display-xl": style("display-xl", "display"),
+        ".type-display-l": style("display-l", "display"),
+        ".type-heading-m": style("heading-m", "display"),
+        ".type-heading-s": style("heading-s", "display"),
+        ".type-body": style("body", "sans"),
+        ".type-body-strong": style("body-strong", "sans"),
+        ".type-label": style("label", "sans"),
+        ".type-caption": style("caption", "sans"),
+        ".type-overline": { ...style("overline", "mono"), textTransform: "uppercase" },
+      });
+    }),
+  ],
+};
+
+export default config;
