@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AuthFailure } from "../types/auth";
+import { useStorage } from "@vueuse/core";
 
 const authStore = useAuthStore();
 
@@ -9,6 +10,8 @@ const emailError = ref("");
 const passwordError = ref("");
 const isLoading = ref(false);
 const failure = ref<AuthFailure | null>(null);
+const firstTime =
+  localStorage.getItem("firstTime") === null ? ref(true) : ref(false);
 
 const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -55,20 +58,28 @@ async function submit() {
     isLoading.value = false;
   }
 }
+
+onMounted(() => {
+  localStorage.setItem("firstTime", "false");
+});
 </script>
 
 <template>
   <Container>
     <div>
       <div
-        class="flex justify-center pt-11 px-7 pb-5 bg-[radial-gradient(120%_90%_at_50%_0%,_rgb(20,106,81),_rgb(14,82,64))]"
+        class="flex flex-col items-center justify-center pt-11 px-5 pb-7 bg-[radial-gradient(120%_90%_at_50%_0%,_rgb(20,106,81),_rgb(14,82,64))] rounded-[0_0_28px_28px] text-cream"
       >
         <img
           src="~/assets/images/icons/logo-light.svg"
           alt="Logo"
           class="h-16 w-auto"
         />
-        <h1></h1>
+        <h1>
+          <span>Welcome</span>
+          <span v-if="!firstTime"> back</span>
+        </h1>
+        <p>Sign in to manage your celebrations</p>
       </div>
       <AppCard class="w-full max-w-sm">
         <form class="flex flex-col gap-unit" @submit.prevent="submit">
