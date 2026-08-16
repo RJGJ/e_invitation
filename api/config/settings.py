@@ -128,12 +128,15 @@ MEDIA_URL = "/media/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
-# CORS — mirrors the old Keystone API's allowed origins (Nuxt dev origin + Capacitor webviews)
+# CORS — mirrors the old Keystone API's allowed origins (Nuxt dev origin(s) + Capacitor webviews).
+# CORS_ALLOWED_ORIGINS is a comma-separated list so extra origins (other dev ports, staging) can
+# be added via env without a code change.
 
 CORS_ALLOWED_ORIGINS = [
-    os.environ.get("CORS_ORIGIN_DEV", "http://localhost:3000"),
-    "http://localhost",
-]
+    origin.strip()
+    for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:3003").split(",")
+    if origin.strip()
+] + ["http://localhost"]
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^capacitor://localhost$",
 ]

@@ -10,19 +10,15 @@ beforeEach(() => {
 })
 
 describe('authApi.login', () => {
-  it('returns tokens and user on success', async () => {
-    const payload = {
-      accessToken: 'access',
-      refreshToken: 'refresh',
-      user: { id: '1', name: 'Ada', email: 'ada@example.com' },
-    }
+  it('returns tokens on success', async () => {
+    const payload = { access: 'access', refresh: 'refresh' }
     fetchMock.mockResolvedValueOnce(payload)
 
     const result = await authApi.login('ada@example.com', 'hunter2')
 
     expect(result).toEqual(payload)
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/auth/login',
+      '/api/token/',
       expect.objectContaining({
         baseURL: 'http://test',
         method: 'POST',
@@ -37,12 +33,14 @@ describe('authApi.login', () => {
     await expect(authApi.login('ada@example.com', 'wrong')).rejects.toEqual({ kind: 'invalid-credentials' })
   })
 
-  it('maps a 400 to validation with the server message', async () => {
-    fetchMock.mockRejectedValueOnce({ response: { status: 400, _data: { error: 'Missing password' } } })
+  it('maps a 400 with DRF field-array errors to validation with the first message', async () => {
+    fetchMock.mockRejectedValueOnce({
+      response: { status: 400, _data: { email: ['This field is required.'] } },
+    })
 
-    await expect(authApi.login('ada@example.com', '')).rejects.toEqual({
+    await expect(authApi.login('', 'x')).rejects.toEqual({
       kind: 'validation',
-      message: 'Missing password',
+      message: 'This field is required.',
     })
   })
 
@@ -60,23 +58,39 @@ describe('authApi.login', () => {
 })
 
 describe('authApi.refresh', () => {
-  it('returns the new access token', async () => {
-    fetchMock.mockResolvedValueOnce({ accessToken: 'new-access' })
+  it('posts refresh to /api/token/refresh/ and returns the new access token', async () => {
+    fetchMock.mockResolvedValueOnce({ access: 'new-access' })
 
     await expect(authApi.refresh('refresh-token')).resolves.toBe('new-access')
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/token/refresh/',
+      expect.objectContaining({
+        baseURL: 'http://test',
+        method: 'POST',
+        body: { refresh: 'refresh-token' },
+      }),
+    )
   })
 
-  it('throws a mapped AuthFailure on 401', async () => {
-    fetchMock.mockRejectedValueOnce({ response: { status: 401 } })
+  it('maps a 401 {detail} to invalid-credentials', async () => {
+    fetchMock.mockRejectedValueOnce({ response: { status: 401, _data: { detail: 'Token is invalid or expired' } } })
 
     await expect(authApi.refresh('bad-token')).rejects.toEqual({ kind: 'invalid-credentials' })
   })
 })
 
 describe('authApi.logout', () => {
-  it('swallows failures — the API always returns 200 per its contract', async () => {
+  it('posts refresh to /api/token/blacklist/ and swallows all failures', async () => {
     fetchMock.mockRejectedValueOnce(new Error('network down'))
 
     await expect(authApi.logout('refresh-token')).resolves.toBeUndefined()
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/token/blacklist/',
+      expect.objectContaining({
+        baseURL: 'http://test',
+        method: 'POST',
+        body: { refresh: 'refresh-token' },
+      }),
+    )
   })
 })

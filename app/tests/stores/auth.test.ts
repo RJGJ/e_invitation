@@ -7,6 +7,10 @@ const authApiMock = {
   logout: vi.fn(),
 }
 
+const meApiMock = {
+  fetchMe: vi.fn(),
+}
+
 const tokenStorageMock = {
   readAccessToken: vi.fn(),
   readRefreshToken: vi.fn(),
@@ -17,13 +21,14 @@ const tokenStorageMock = {
 }
 
 vi.mock('../../app/services/authApi', () => ({ authApi: authApiMock }))
+vi.mock('../../app/services/meApi', () => ({ meApi: meApiMock }))
 vi.mock('../../app/services/tokenStorage', () => ({ tokenStorage: tokenStorageMock }))
 vi.mock('../../app/utils/jwt', () => ({ isTokenExpired: vi.fn() }))
 
 const { useAuthStore } = await import('../../app/stores/auth')
 const { isTokenExpired } = await import('../../app/utils/jwt')
 
-const user = { id: '1', name: 'Ada', email: 'ada@example.com' }
+const user = { id: '1', name: 'Ada', email: 'ada@example.com', groups: [] as string[] }
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -31,21 +36,34 @@ beforeEach(() => {
 })
 
 describe('login', () => {
-  it('persists the session and sets authenticated state', async () => {
-    authApiMock.login.mockResolvedValueOnce({ accessToken: 'a', refreshToken: 'r', user })
+  it('fetches tokens then the profile, persists the session, and sets authenticated state', async () => {
+    authApiMock.login.mockResolvedValueOnce({ access: 'a', refresh: 'r' })
+    meApiMock.fetchMe.mockResolvedValueOnce(user)
 
     const store = useAuthStore()
     await store.login('ada@example.com', 'hunter2')
 
+    expect(meApiMock.fetchMe).toHaveBeenCalledWith('a')
     expect(tokenStorageMock.writeSession).toHaveBeenCalledWith({ accessToken: 'a', refreshToken: 'r', user })
     expect(store.authState).toEqual({ status: 'authenticated', user })
   })
 
-  it('leaves the store unauthenticated and rethrows on failure', async () => {
+  it('leaves the store unauthenticated and rethrows on login failure', async () => {
     authApiMock.login.mockRejectedValueOnce({ kind: 'invalid-credentials' })
 
     const store = useAuthStore()
     await expect(store.login('ada@example.com', 'wrong')).rejects.toEqual({ kind: 'invalid-credentials' })
+    expect(store.authState).toEqual({ status: 'unknown' })
+    expect(meApiMock.fetchMe).not.toHaveBeenCalled()
+  })
+
+  it('persists nothing and rethrows when the profile fetch fails after a successful login', async () => {
+    authApiMock.login.mockResolvedValueOnce({ access: 'a', refresh: 'r' })
+    meApiMock.fetchMe.mockRejectedValueOnce({ kind: 'server' })
+
+    const store = useAuthStore()
+    await expect(store.login('ada@example.com', 'hunter2')).rejects.toEqual({ kind: 'server' })
+    expect(tokenStorageMock.writeSession).not.toHaveBeenCalled()
     expect(store.authState).toEqual({ status: 'unknown' })
   })
 })

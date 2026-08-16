@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test'
 // fast in CI. Scenarios mirror the Flutter version's Patrol suite
 // (flutter/integration_test/login_flow_test.dart).
 
-const user = { id: '1', name: 'Ada Lovelace', email: 'ada@example.com' }
+const user = { id: '1', name: 'Ada Lovelace', email: 'ada@example.com', groups: [] as string[] }
 
 // A JWT-shaped token with a real future `exp`, so isTokenExpired() (used by
 // the auto-login fast path) evaluates it the same way it would a real
@@ -17,10 +17,15 @@ function fakeAccessToken(): string {
   return `${header}.${payload}.`
 }
 
+function routeMe(page: import('@playwright/test').Page) {
+  return page.route('**/graphql/', (route) => route.fulfill({ json: { data: { me: user } } }))
+}
+
 test('happy path: valid login lands on home showing the user name', async ({ page }) => {
-  await page.route('**/api/auth/login', (route) =>
-    route.fulfill({ json: { accessToken: fakeAccessToken(), refreshToken: 'refresh', user } }),
+  await page.route('**/api/token/', (route) =>
+    route.fulfill({ json: { access: fakeAccessToken(), refresh: 'refresh' } }),
   )
+  await routeMe(page)
 
   await page.goto('/login')
   await page.getByLabel('Email').fill(user.email)
@@ -32,8 +37,11 @@ test('happy path: valid login lands on home showing the user name', async ({ pag
 })
 
 test('wrong password shows the exact enumeration-safe error message', async ({ page }) => {
-  await page.route('**/api/auth/login', (route) =>
-    route.fulfill({ status: 401, json: { error: 'Invalid email or password' } }),
+  // login.vue never surfaces the server's raw message for a 401 — it always
+  // shows this fixed, enumeration-safe copy regardless of simplejwt's actual
+  // {detail: "..."} text.
+  await page.route('**/api/token/', (route) =>
+    route.fulfill({ status: 401, json: { detail: 'No active account found with the given credentials' } }),
   )
 
   await page.goto('/login')
@@ -46,10 +54,11 @@ test('wrong password shows the exact enumeration-safe error message', async ({ p
 })
 
 test('loading state disables the form while the request is in flight', async ({ page }) => {
-  await page.route('**/api/auth/login', async (route) => {
+  await page.route('**/api/token/', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 300))
-    await route.fulfill({ json: { accessToken: fakeAccessToken(), refreshToken: 'refresh', user } })
+    await route.fulfill({ json: { access: fakeAccessToken(), refresh: 'refresh' } })
   })
+  await routeMe(page)
 
   await page.goto('/login')
   await page.getByLabel('Email').fill(user.email)
@@ -62,9 +71,10 @@ test('loading state disables the form while the request is in flight', async ({ 
 })
 
 test('session survives a hard reload (auto-login)', async ({ page }) => {
-  await page.route('**/api/auth/login', (route) =>
-    route.fulfill({ json: { accessToken: fakeAccessToken(), refreshToken: 'refresh', user } }),
+  await page.route('**/api/token/', (route) =>
+    route.fulfill({ json: { access: fakeAccessToken(), refresh: 'refresh' } }),
   )
+  await routeMe(page)
 
   await page.goto('/login')
   await page.getByLabel('Email').fill(user.email)
@@ -79,10 +89,11 @@ test('session survives a hard reload (auto-login)', async ({ page }) => {
 })
 
 test('logout returns to /login', async ({ page }) => {
-  await page.route('**/api/auth/login', (route) =>
-    route.fulfill({ json: { accessToken: fakeAccessToken(), refreshToken: 'refresh', user } }),
+  await page.route('**/api/token/', (route) =>
+    route.fulfill({ json: { access: fakeAccessToken(), refresh: 'refresh' } }),
   )
-  await page.route('**/api/auth/logout', (route) => route.fulfill({ json: { success: true } }))
+  await routeMe(page)
+  await page.route('**/api/token/blacklist/', (route) => route.fulfill({ json: {} }))
 
   await page.goto('/login')
   await page.getByLabel('Email').fill(user.email)

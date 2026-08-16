@@ -11,20 +11,20 @@ function baseUrl(): string {
 }
 
 function isAuthRoute(path: string): boolean {
-  return path.includes('/api/auth/login') || path.includes('/api/auth/refresh')
+  return path.includes('/api/token/')
 }
 
 async function refreshAccessToken(): Promise<string> {
   const refreshToken = await tokenStorage.readRefreshToken()
   if (!refreshToken) throw new Error('no-refresh-token')
 
-  const { accessToken } = await $fetch<{ accessToken: string }>('/api/auth/refresh', {
+  const { access } = await $fetch<{ access: string }>('/api/token/refresh/', {
     baseURL: baseUrl(),
     method: 'POST',
-    body: { refreshToken },
+    body: { refresh: refreshToken },
   })
-  await tokenStorage.writeAccessToken(accessToken)
-  return accessToken
+  await tokenStorage.writeAccessToken(access)
+  return access
 }
 
 // Bearer-token attachment + a single deduplicated refresh-and-retry on 401,
